@@ -30,14 +30,12 @@ int main(void)
     p->size = sizeof(struct point); 
 
     printf("p->x = %d, p->y =%d\n", ((struct point*)(p->data))->x, ((struct point *)(p->data))->y);
-
+    printf("q->x = %d, q->y =%d\n", ((struct point*)(q->data))->x, ((struct point *)(q->data))->y);
+    
     /* remove pointe p */
     p->data = NULL;
     p->size = 0;
-    /*free(p);*/
-
-    printf("q->x = %d, q->y =%d\n", ((struct point*)(q->data))->x, ((struct point *)(q->data))->y);
-    
+    free(p);
 
     return(0);
 }
