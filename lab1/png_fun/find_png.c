@@ -6,14 +6,15 @@
 #include<sys/types.h>
 #include<sys/stat.h>
 #include<dirent.h>
+#include <unistd.h>
 
 int main(int argc, char* argv[]){
     /*findpng takes a directory name as an argument. only takes ONE argument*/
 
     /*VARIABLES*/
-    char* ptr;
+    char *ptr;
     struct stat buf;
-    DIR* directory;
+    DIR *directory;
     struct dirent *dirent_ptr;
 
 
@@ -24,7 +25,7 @@ int main(int argc, char* argv[]){
     }
 
     /*IDENTIFY IF THIS IS A DIRECTORY OR NOT*/
-    if(directory = opendir(argv[1]) == NULL){
+    if((directory = opendir(argv[1])) == NULL){
         // IF THE DIRECTORY PASSED IS NOT A DIRECTORY, EXIT WITH ERROR STATUS
         printf("Arg passed is not a directory. THIS NEEDS TO BE CHANGED TO 'No PNG found'\n");
         exit(1);
@@ -39,7 +40,15 @@ int main(int argc, char* argv[]){
       
       OTHER CASES: SEARCH OTHER SUBDIRECTORIES. THEN, ONCE RETURNED, LOOK THROUGH THE PNG'S TO SEE IF ACTUALLY PNG*/
 
-    while(dirent_ptr = readdir(directory) != NULL){
+    while((dirent_ptr = readdir(directory)) != NULL){
+        /*char *str_path = dirent_ptr->d_name;
+
+        if (str_path == NULL) {
+            fprintf(stderr,"Null pointer found!"); 
+            exit(3);
+        } else {
+            printf("%s\n", str_path);
+        } */
         printf("%s\n", dirent_ptr->d_name);
     }
     closedir(directory);
@@ -66,5 +75,5 @@ int main(int argc, char* argv[]){
 
     /**/
 
-    exit(0);
+    return 0;
 }
