@@ -61,7 +61,15 @@ typedef struct simple_PNG {
 /******************************************************************************
  * FUNCTION PROTOTYPES 
  *****************************************************************************/
-int is_png(U8 *buf, size_t n);
+
+/** @brief Determine if a file is a png or not given file path
+ *
+ *  @param fpath The string of relative or absolute file path.
+ *  @return 0 if the file is a png, -1 otherwise
+ */
+int is_png(const char *fpath);
+
+
 int get_png_height(struct data_IHDR *buf);
 int get_png_width(struct data_IHDR *buf);
 int get_png_data_IHDR(struct data_IHDR *out, FILE *fp, long offset, int whence);
