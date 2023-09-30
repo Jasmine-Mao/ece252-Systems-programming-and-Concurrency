@@ -19,28 +19,36 @@ void function(DIR *directory){
     struct dirent *dirent_pointer;
     dirent_pointer = readdir(directory);
 
-    while((dirent_pointer = readdir(directory)) != NULL){
-        
+     while((dirent_pointer = readdir(directory)) != NULL){
         if(strcmp(dirent_pointer->d_name, "..") != 0){
             // SKIPS OVER THE FIRST '..' DIRECTORY IN EACH SUBDIRECTORY --> NO GOOD INFO IN HERE
             if(dirent_pointer->d_type == 4){    
-                // FOUND A NEW DIRECTORY! CREATE A NEW DIR OBJECT 
+                // FOUND A NEW DIRECTORY! CREATE A NEW DIR OBJECT AND CALL THE FUNCTION AGAIN
                 DIR *newDirectory = opendir(dirent_pointer->d_name);
                 // printf("%s\n", dirent_pointer->d_name);
                 function(newDirectory);
             }
-            // IF IT GETS HERE, THE FILE IS (PROBABLY) A NORMAL FILE. NOW WE NEED TO CHECK IF IT'S A PNG
+            else if(dirent_pointer->d_type == 8){
+                // IF THE FILE IS A REGULAR FILE. NOW WE NEED TO CHECK IF IT'S A PNG
+
+                // BEGIN BY CHECKING THE NAME OF THE FILE(ENDING IN .png)
+                // find the last '.' in the file name, then see if the last 3 characters after the dot are 'png'
+                
+                int fileLength = strlen(dirent_pointer->d_name);
+                if(fileLength > 4){
+                    // if file length at least contains enough stuff for '.png'
+                    const char* lastFour = &dirent_pointer->d_name[fileLength - 4];
+                    // get a pointer to the last 
+                    if((strcmp(lastFour, ".png") == 0) || (strcmp(lastFour, ".PNG") == 0)){
+                        // if the last 4 characters end with '.png' or '.PNG', as per the lab manual
+                        printf("%s\n", dirent_pointer->d_name);
+                    }
+                }
+            }
             printf("%s\n", dirent_pointer->d_name);
         }
     }
     closedir(directory);
-        /* if(dirent_pointer->d_type == 4){    // DIRECTORY
-            DIR *newDirectory = opendir(dirent_pointer->d_name);
-            function(newDirectory);
-        }
-        else if(dirent_pointer->d_type == 8){   // REGULAR FILE
-            printf("regular file: %s\n", dirent_pointer->d_name);
-        } */
 }
 
 
@@ -74,9 +82,6 @@ int main(int argc, char* argv[]){
     } */
     // dirent_ptr = readdir(directory);
     function(directory);
-
-    closedir(directory);
-
-
+    
     return 0;
 }
