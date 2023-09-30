@@ -82,7 +82,7 @@ int main(int argc, char* argv[]){
     scanf("%[^\n]%*c", argv[0]); */
 
 
-    if(((directory = opendir(argv[1])) == NULL) || (function(directory, strcat(argv[1], "/"), 0) == -1)){                                                                 /*arg2 is the directory we will be looking for. is we try opening a directory with that name and we get NULL, the directory doesnt exist*/
+    if(((directory = opendir(argv[1])) == NULL) || (function(directory, strcat(argv[1], "/"), 0) == -1)){       /*arg2 is the directory we will be looking for. is we try opening a directory with that name and we get NULL, the directory doesnt exist*/
         printf("findpng: No PNG file found\n");
         exit(1);
     }                               
