@@ -55,10 +55,10 @@ int find_png(DIR *directory, char filePath[], int numPNGs){                     
 int main (int argc, char* argv[]){
     DIR *directory;
 
-    /* if(argc != 2){
-        printf("findpng: No PNG file found.\n");
+     if(argc != 2){                                                                                              /*case where no or multiple arguments ar passed. ERROR*/
+        printf("ERROR, please enter one (1) argument.\n");
         exit(1);
-    }   */
+    }   
 
     /* printf("inputs (DELETE ME AFTER, CHANGE TO argv[1]!!!): ");
     scanf("%[^\n]%*c", argv[0]); */

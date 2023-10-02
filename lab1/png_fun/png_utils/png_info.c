@@ -50,3 +50,19 @@ int is_png(const char *fpath){
 // int get_png_data_IHDR(struct data_IHDR *out, FILE *fp, long offset, int whence){
 
 // }
+
+// REMOVE LATER, using to test png_info
+// int main(int argc, char *argv[]) 
+// {
+//     if (argc != 2){
+//         printf("WRONG");
+//         exit(1);
+//     }
+//     if (is_png(argv[1]) < 0){
+//         printf("%s : Not a PNG file", argv[1]);
+//         exit(1);
+//     }
+//     printf("yay it;s a png (print dimensions later)");
+//     exit(1);
+
+// }
