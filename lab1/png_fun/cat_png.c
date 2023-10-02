@@ -33,7 +33,7 @@ data_IHDR_p read_ihdr(const char *fpath){ /*memory leak here -- pointer is retur
     if(fread(&(data_reading->width), sizeof(int), 1, f) !=1){
         perror("Error reading width");
         fclose(f);
-        return NULL;
+        exit(1);
     };
 
     data_reading->width = ntohl(data_reading->width);
@@ -84,10 +84,14 @@ int concatenate_pngs(int argc, char* argv[]){
     all_ihdr -> p_data = read_ihdr(argv[1]);
     all_png->p_IHDR = all_ihdr;
 
+    int all_height = 0;
     for (int i = 1; i < argc; i++){
-        read_height(argv[i]);
+        all_height += read_height(argv[i]);
     }
-    
+
+    all_png->p_IHDR->p_data->height = all_height;
+
+    free(all_ihdr);
     free(all_png);
     return 0;
 }

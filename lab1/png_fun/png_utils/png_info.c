@@ -29,5 +29,6 @@ int is_png(const char *fpath){
     }
 
     free(read_buffer);
+    fclose(f);
     return 0;
 }
