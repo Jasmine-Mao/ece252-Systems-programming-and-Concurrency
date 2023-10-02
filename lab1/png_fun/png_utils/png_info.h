@@ -53,9 +53,9 @@ typedef struct data_IHDR {// IHDR chunk data
 
 /* A simple PNG file format, three chunks only*/
 typedef struct simple_PNG {
-    struct chunk *p_IHDR;
-    struct chunk *p_IDAT;  /* only handles one IDAT chunk */  
-    struct chunk *p_IEND;
+    data_IHDR_p p_IHDR;
+    chunk_p p_IDAT;  /* only handles one IDAT chunk */  
+    chunk_p p_IEND;
 } *simple_PNG_p;
 
 /** @brief Determine if a file is a png or not given file path
@@ -65,6 +65,10 @@ typedef struct simple_PNG {
  */
 int is_png(const char *fpath);
 
-// int get_png_height(struct data_IHDR *buf);
-// int get_png_width(struct data_IHDR *buf);
+// getter for png height
+int get_png_height(struct data_IHDR *buf);
+
+// getter for png width
+int get_png_width(struct data_IHDR *buf);
+
 // int get_png_data_IHDR(struct data_IHDR *out, FILE *fp, long offset, int whence);
