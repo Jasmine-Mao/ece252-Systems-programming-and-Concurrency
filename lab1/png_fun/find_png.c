@@ -6,6 +6,21 @@
 #include "png_utils/png_info.h"
 #include "find_png.h"
 
+/*
+memory leaks (valgrind):
+==90765== LEAK SUMMARY:
+==90765==    definitely lost: 8 bytes in 2 blocks
+==90765==    indirectly lost: 0 bytes in 0 blocks
+==90765==      possibly lost: 0 bytes in 0 blocks
+==90765==    still reachable: 8,496 bytes in 18 blocks
+==90765==         suppressed: 0 bytes in 0 blocks
+==90765== Rerun with --leak-check=full to see details of leaked memory
+==90765== 
+==90765== For lists of detected and suppressed errors, rerun with: -s
+==90765== ERROR SUMMARY: 18 errors from 1 contexts (suppressed: 0 from 0)
+*/
+
+
 int find_png(DIR *directory, char filePath[], int numPNGs){                                                     /*function that takes a directory, filepath, and the total number of pngs as arguments. recursively searches through files for pngs*/
     if (directory != NULL){
         struct dirent *dirent_pointer;

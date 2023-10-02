@@ -53,6 +53,7 @@ typedef struct data_IHDR {// IHDR chunk data
 
 /* A simple PNG file format, three chunks only*/
 typedef struct simple_PNG {
+    double header;
     data_IHDR_p p_IHDR;
     chunk_p p_IDAT;  /* only handles one IDAT chunk */  
     chunk_p p_IEND;

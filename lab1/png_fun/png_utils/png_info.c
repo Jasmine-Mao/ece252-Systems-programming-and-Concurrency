@@ -7,6 +7,10 @@
 #include <stdlib.h>
 #include "png_info.h"
 
+/*
+i think we should try running a memory leak test here too
+*/
+
 int is_png(const char *fpath){
     FILE *f = fopen(fpath, "r");
     if (!f) {

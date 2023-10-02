@@ -11,46 +11,110 @@
 #include <arpa/inet.h>
 #include "cat_png.h"
 
+/*memory leaks (valgrind)
 
-/*
-goal: given the paths to several png files, return a png file titled all.png that is a vertical concatenation of the given pngs
-procedure:
-1, locating the given pngs
-2. verifying that they are pngs (is_png)
-3. open pngs (fopen)
-4. fread to find width height?
-5. fseek to find 73 68 65 84 
-
-3. reading the pngs and their data
-a. inflate w zlib
-b. identify ihdr, idat, iend
-4. creating a new png file; writing to the png file (appending the new pngs one by one to the file)
-5. compress and create one idat
 */
 
 // One-time initialization of non-height IHDR values
-data_IHDR_p read_ihdr(const char *fpath){
-    return NULL; // temp
+data_IHDR_p read_ihdr(const char *fpath){ /*memory leak here -- pointer is returned, how do we free?
+ also valgrind ./catpng starter/images/uweng.png --leak-check=full and valgrind ./catpng starter/images/uweng.png give different error counts*/
+    FILE *f = fopen(fpath, "rb");
+    if (!f) {
+        perror("fopen");
+        return NULL;
+    }
+
+    data_IHDR_p initial = malloc(13);
+    fseek(f, 16, SEEK_SET);
+    /*header 8 + ihdr len 4 + ihdr type 4 + ihdr data width 4 = 20*/
+
+    if(fread(&(initial->width), sizeof(int), 1, f) !=1){
+        perror("Error reading width");
+        fclose(f);
+        return NULL;
+    };
+    initial->width = ntohl(initial->width);
+
+    if(fread(&(initial->height), sizeof(int), 1, f) !=1){
+        perror("Error reading height");
+        fclose(f);
+        return NULL;
+    };
+    initial->height = ntohl(initial->height);
+
+    if(fread(&(initial->bit_depth), sizeof(char), 1, f) !=1){
+        perror("Error reading bit_depth");
+        fclose(f);
+        return NULL;
+    };
+    //initial->bit_depth = ntohl(initial->bit_depth);
+    if(fread(&(initial->color_type), sizeof(char), 1, f) !=1){
+        perror("Error reading color type");
+        fclose(f);
+        return NULL;
+    };
+
+    if(fread(&(initial->compression), sizeof(char), 1, f) !=1){
+        perror("Error reading compression");
+        fclose(f);
+        return NULL;
+    };
+
+    if(fread(&(initial->filter), sizeof(char), 1, f) !=1){
+        perror("Error reading filter");
+        fclose(f);
+        return NULL;
+    };
+
+    if(fread(&(initial->interlace), sizeof(char), 1, f) !=1){
+        perror("Error reading interlace");
+        fclose(f);
+        return NULL;
+    };   
+
+    //printf("%d, %d, %d, %d, %d, %d, %d\n", initial->width, initial->height, initial->bit_depth, initial->color_type, initial->compression, initial->filter, nitial->interlace);
+
+    return initial; // temp
+    //return NULL;
 }
 
 int read_height(const char *fpath){
-    return 0;
+    int height = 0;
+    FILE *f = fopen(fpath, "rb");
+    if (!f) {
+        perror("fopen");
+        return -1;
+    }
+    
+    fseek(f, 20, SEEK_SET);
+    /*header 8 + ihdr len 4 + ihdr type 4 + ihdr data width 4 = 20*/
+
+    if(fread(&height, sizeof(int), 1, f) !=1){
+        perror("Error reading height");
+        fclose(f);
+        return -1;
+    };
+    height = ntohl(height);
+    return height;
 }
 
 int concatenate_idat(const char *fpath, chunk_p *idat){
     return 0;
 }
 
-int concatenate_pngs(int argc, char* argv){
+int concatenate_pngs(int argc, char* argv[]){
     simple_PNG_p all_png = malloc(sizeof(struct simple_PNG));
     all_png->p_IDAT = NULL;
     all_png->p_IEND = NULL;
     all_png->p_IHDR = read_ihdr(argv[1]);
 
+    int k, j = 0;
     for (int i = 1; i < argc; i++){
-        all_png->p_IHDR->height += read_height(argv[i]);
+        k = read_height(argv[i]);
+        j += read_height(argv[i]);
+        //printf("%d total: %d \n", k, j);
     }
-
+    free(all_png); /*there was a memory leak here idk if this was the right soln*/
     return 0;
 }
 
@@ -68,17 +132,22 @@ int verify_png(const char *fpath){ /*verifying a correct file path to avoid segm
 }
 
 int main(int argc, char* argv[]){
-    /*struct* simple_PNG pngs[]*/
     if (argc < 2){
         fprintf(stderr, "Missing argument\n");
         exit(1);
     }
-    for (int i = 1; i < argc; ++i) {
+      for (int i = 1; i < argc; ++i) {
         if (verify_png(argv[i]) < 0){
             fprintf(stderr, "%s: File is not a PNG\n", argv[i]);
             exit(1);
         } 
     }
+    
+    concatenate_pngs(argc, argv);
 
+    for (int i = 0; i < argc; ++i) { 
+        free(argv[i]); 
+    }
+    free(argv);
     return 0;
 }
