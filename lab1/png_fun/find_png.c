@@ -2,9 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <dirent.h>
 #include <unistd.h>
 #include "png_utils/png_info.h"
+#include "find_png.h"
 
 int find_png(DIR *directory, char filePath[], int numPNGs){                                                     /*function that takes a directory, filepath, and the total number of pngs as arguments. recursively searches through files for pngs*/
     if (directory != NULL){
