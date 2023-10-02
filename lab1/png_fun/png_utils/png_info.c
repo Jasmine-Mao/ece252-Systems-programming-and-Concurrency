@@ -25,9 +25,14 @@ int is_png(const char *fpath){
     if ((read_buffer[1] != 0x50) ||
         (read_buffer[2] != 0x4E) ||
         (read_buffer[3] != 0x47)) {
+        free(read_buffer);
+        fclose(f);
+        //free(f);
         return -1;
     }
-
     free(read_buffer);
+    fclose(f);
+    // free(f);
+    
     return 0;
 }
