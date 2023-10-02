@@ -4,6 +4,10 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include "png_utils/png_info.h"
+#include "png_utils/zutil.h"
+#include "png_utils/crc.h"
+
 #include <arpa/inet.h>
 #include "cat_png.h"
 
@@ -14,7 +18,8 @@ procedure:
 1, locating the given pngs
 2. verifying that they are pngs (is_png)
 3. open pngs (fopen)
-
+4. fread to find width height?
+5. fseek to find 73 68 65 84 
 
 3. reading the pngs and their data
 a. inflate w zlib
@@ -41,7 +46,7 @@ int concatenate_pngs(int argc, char* argv){
     return 0;
 }
 
-int verify_png(const char *fpath){
+int verify_png(const char *fpath){ /*verifying a correct file path to avoid segmentation faults prior to calling is_png */
     struct stat type_buffer;
     if (lstat(fpath, &type_buffer) < 0) {
         perror("lstat error");
@@ -54,7 +59,16 @@ int verify_png(const char *fpath){
     return(is_png(fpath));
 }
 
+int free_png(){
+    /*free png struct instances*/
+    for (int i = 0; i < len(array); i++){
+        free(array[i])
+    }
+    free(array)
+}
+
 int main(int argc, char* argv[]){
+    /*struct* simple_PNG pngs[]*/
     if (argc < 2){
         fprintf(stderr, "Missing argument\n");
         exit(1);
@@ -63,8 +77,14 @@ int main(int argc, char* argv[]){
         if (verify_png(argv[i]) < 0){
             fprintf(stderr, "%s: File is not a PNG\n", argv[i]);
             exit(1);
+        } else {
+           printf("%s: File is a PNG\n", argv[i]); 
+           /*create simple_png struct instance per png*
+           pngs[i-1]. = malloc(sizeof(argv[i]));*/
         }
     }
+
+    free_png(pngs)
 
     return 0;
 }

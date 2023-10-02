@@ -31,3 +31,9 @@ int is_png(const char *fpath){
 int get_png_height(struct data_IHDR *buf){return buf->height;}
 
 int get_png_width(struct data_IHDR *buf){return buf->width;}
+/*
+initialize struct chunk values
+ihdr struct: read 8 bytes (png header) then assign values (for what use? width and height? [yes])
+    p.ihdr is the actual chunk, then data.ihdr is the data field
+simple png has chunk instance p_IHDR, chunk instance p_IHDR has pointer p_data pointing to data_IHDR instance,  data_IHDR instance has ihdr data 
+*/
