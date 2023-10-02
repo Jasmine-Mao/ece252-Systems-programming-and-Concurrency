@@ -4,16 +4,13 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
-#include "png_utils/png_info.h"
 #include "png_utils/zutil.h"
 #include "png_utils/crc.h"
 
 #include <arpa/inet.h>
 #include "cat_png.h"
 
-/*memory leaks (valgrind)
-
-*/
+#define IHDR_CHUNK_SIZE 25
 
 // One-time initialization of non-height IHDR values
 data_IHDR_p read_ihdr(const char *fpath){ /*memory leak here -- pointer is returned, how do we free?
@@ -24,58 +21,33 @@ data_IHDR_p read_ihdr(const char *fpath){ /*memory leak here -- pointer is retur
         return NULL;
     }
 
-    data_IHDR_p initial = malloc(13);
-    fseek(f, 16, SEEK_SET);
-    /*header 8 + ihdr len 4 + ihdr type 4 + ihdr data width 4 = 20*/
+    data_IHDR_p data_reading = malloc(DATA_IHDR_SIZE);
+    if (fseek(f, 16, SEEK_SET) != 0){
+        perror("fseek");
+        free(data_reading);
+        fclose(f);
+        exit(1);
+    }
 
-    if(fread(&(initial->width), sizeof(int), 1, f) !=1){
+    /*header 8 + ihdr len 4 + ihdr type 4 + ihdr data width 4 = 20*/
+    if(fread(&(data_reading->width), sizeof(int), 1, f) !=1){
         perror("Error reading width");
         fclose(f);
-        return NULL;
-    };
-    initial->width = ntohl(initial->width);
-
-    if(fread(&(initial->height), sizeof(int), 1, f) !=1){
-        perror("Error reading height");
-        fclose(f);
-        return NULL;
-    };
-    initial->height = ntohl(initial->height);
-
-    if(fread(&(initial->bit_depth), sizeof(char), 1, f) !=1){
-        perror("Error reading bit_depth");
-        fclose(f);
-        return NULL;
-    };
-    //initial->bit_depth = ntohl(initial->bit_depth);
-    if(fread(&(initial->color_type), sizeof(char), 1, f) !=1){
-        perror("Error reading color type");
-        fclose(f);
-        return NULL;
+        exit(1);
     };
 
-    if(fread(&(initial->compression), sizeof(char), 1, f) !=1){
-        perror("Error reading compression");
-        fclose(f);
-        return NULL;
-    };
+    data_reading->width = ntohl(data_reading->width);
 
-    if(fread(&(initial->filter), sizeof(char), 1, f) !=1){
-        perror("Error reading filter");
-        fclose(f);
-        return NULL;
-    };
+    data_reading->height = 0;
+    data_reading->bit_depth = 1;
+    data_reading->color_type = 6;
+    data_reading->compression = 0;
+    data_reading->filter = 0;
+    data_reading->interlace = 0;
 
-    if(fread(&(initial->interlace), sizeof(char), 1, f) !=1){
-        perror("Error reading interlace");
-        fclose(f);
-        return NULL;
-    };   
+    printf("Width: %d\n", data_reading->width);
 
-    //printf("%d, %d, %d, %d, %d, %d, %d\n", initial->width, initial->height, initial->bit_depth, initial->color_type, initial->compression, initial->filter, nitial->interlace);
-
-    return initial; // temp
-    //return NULL;
+    return data_reading;
 }
 
 int read_height(const char *fpath){
@@ -99,22 +71,43 @@ int read_height(const char *fpath){
 }
 
 int concatenate_idat(const char *fpath, chunk_p *idat){
+    // deflate/compress data and concatenate data onto the idat chunk
     return 0;
 }
 
 int concatenate_pngs(int argc, char* argv[]){
-    simple_PNG_p all_png = malloc(sizeof(struct simple_PNG));
-    all_png->p_IDAT = NULL;
-    all_png->p_IEND = NULL;
-    all_png->p_IHDR = read_ihdr(argv[1]);
+    simple_PNG_p png_all = malloc(sizeof(struct simple_PNG));
 
-    int k, j = 0;
+    png_all->p_IDAT = NULL;
+    png_all->p_IEND = NULL;
+
+    ihdr_chunk_p ihdr_all = malloc(IHDR_CHUNK_SIZE);
+    ihdr_all -> p_data = read_ihdr(argv[1]);
+    png_all->p_IHDR = ihdr_all;
+
+    int width_all = png_all->p_IHDR->p_data->width;
+    int height_all = 0;
     for (int i = 1; i < argc; i++){
-        k = read_height(argv[i]);
-        j += read_height(argv[i]);
-        //printf("%d total: %d \n", k, j);
+        height_all += read_height(argv[i]);
     }
-    free(all_png); /*there was a memory leak here idk if this was the right soln*/
+
+    png_all->p_IHDR->p_data->height = height_all;
+
+    chunk_p idat_all = malloc(height_all * (width_all * 4 + 1));  // size of uncompressed idat
+
+    for (int i = 1; i < argc; i++){
+        concatenate_idat(argv[i], png_all->p_IDAT);
+    }
+
+    // inflate data
+
+    // validate crc for ihdr chunk
+    // validate crc for idat chunk
+
+    // write
+
+    free(ihdr_all);
+    free(png_all);
     return 0;
 }
 
@@ -145,9 +138,5 @@ int main(int argc, char* argv[]){
     
     concatenate_pngs(argc, argv);
 
-    for (int i = 0; i < argc; ++i) { 
-        free(argv[i]); 
-    }
-    free(argv);
     return 0;
 }

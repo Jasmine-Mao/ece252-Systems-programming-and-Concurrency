@@ -28,13 +28,6 @@
 typedef unsigned char U8;
 typedef unsigned int  U32;
 
-typedef struct chunk {
-    U32 length;  /* length of data in the chunk, host byte order */
-    U8  type[4]; /* chunk type */
-    U8  *p_data; /* pointer to location where the actual data are */
-    U32 crc;     /* CRC field  */
-} *chunk_p;
-
 /* note that there are 13 Bytes valid data, compiler will padd 3 bytes to make
    the structure 16 Bytes due to alignment. So do not use the size of this
    structure as the actual data size, use 13 Bytes (i.e DATA_IHDR_SIZE macro).
@@ -51,10 +44,23 @@ typedef struct data_IHDR {// IHDR chunk data
     U8  interlace;    /* =0: no interlace; =1: Adam7 interlace */
 } *data_IHDR_p;
 
+typedef struct chunk {
+    U32 length;  /* length of data in the chunk, host byte order */
+    U8  type[4]; /* chunk type */
+    U8  *p_data; /* pointer to location where the actual data are */
+    U32 crc;     /* CRC field  */
+} *chunk_p;
+
+typedef struct ihdr_chunk {
+    U32 length;
+    U8  type[4];
+    data_IHDR_p  *p_data;
+    U32 crc;
+} *ihdr_chunk_p; 
+
 /* A simple PNG file format, three chunks only*/
 typedef struct simple_PNG {
-    double header;
-    data_IHDR_p p_IHDR;
+    ihdr_chunk_p p_IHDR;
     chunk_p p_IDAT;  /* only handles one IDAT chunk */  
     chunk_p p_IEND;
 } *simple_PNG_p;
