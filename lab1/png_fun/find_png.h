@@ -1,6 +1,6 @@
 /**
  * @file: find_png.h
- * @brief: function call to locate all pngs in a directory
+ * @brief: function definition to locate all pngs in a directory
  */
 
 #pragma once
