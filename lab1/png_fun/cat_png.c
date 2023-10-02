@@ -27,20 +27,28 @@ b. identify ihdr, idat, iend
 4. creating a new png file; writing to the png file (appending the new pngs one by one to the file)
 5. compress and create one idat
 */
+
+// One-time initialization of non-height IHDR values
 data_IHDR_p read_ihdr(const char *fpath){
     return NULL; // temp
 }
 
+int read_height(const char *fpath){
+    return 0;
+}
+
+int concatenate_idat(const char *fpath, chunk_p *idat){
+    return 0;
+}
+
 int concatenate_pngs(int argc, char* argv){
     simple_PNG_p all_png = malloc(sizeof(struct simple_PNG));
-    all_png->p_IHDR = NULL;
     all_png->p_IDAT = NULL;
     all_png->p_IEND = NULL;
+    all_png->p_IHDR = read_ihdr(argv[1]);
 
     for (int i = 1; i < argc; i++){
-        if (all_png->p_IHDR == NULL){
-            all_png->p_IHDR = read_ihdr(argv[i]);
-        }
+        all_png->p_IHDR->height += read_height(argv[i]);
     }
 
     return 0;
@@ -59,14 +67,6 @@ int verify_png(const char *fpath){ /*verifying a correct file path to avoid segm
     return(is_png(fpath));
 }
 
-int free_png(){
-    /*free png struct instances*/
-    for (int i = 0; i < len(array); i++){
-        free(array[i])
-    }
-    free(array)
-}
-
 int main(int argc, char* argv[]){
     /*struct* simple_PNG pngs[]*/
     if (argc < 2){
@@ -77,14 +77,8 @@ int main(int argc, char* argv[]){
         if (verify_png(argv[i]) < 0){
             fprintf(stderr, "%s: File is not a PNG\n", argv[i]);
             exit(1);
-        } else {
-           printf("%s: File is a PNG\n", argv[i]); 
-           /*create simple_png struct instance per png*
-           pngs[i-1]. = malloc(sizeof(argv[i]));*/
-        }
+        } 
     }
-
-    free_png(pngs)
 
     return 0;
 }
