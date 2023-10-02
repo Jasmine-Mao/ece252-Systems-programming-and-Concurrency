@@ -27,15 +27,11 @@ int is_png(const char *fpath){
         (read_buffer[3] != 0x47)) {
         free(read_buffer);
         fclose(f);
-        //free(f);
         return -1;
     }
     free(read_buffer);
     fclose(f);
-<<<<<<< HEAD
-    // free(f);
-    
-=======
->>>>>>> 75af8baace90d140440c2d805953e4e0fb87aea7
     return 0;
 }
+void set_png_height(struct data_IHDR *buf, int new_height){buf->height = new_height;}
+int get_png_width(struct data_IHDR *buf){return buf->width;}
