@@ -5,10 +5,6 @@
 #include "png_info.h"
 
 int is_png(const char *fpath){
-    // ensure file is valid type (regular) 
-    // NOTE @jasmine: if you would rather redo this part in find_png
-    // feel free since we rlly just need to check header here,
-    // i thought i might as well include it in this function
     struct stat type_buffer;
     if (lstat(fpath, &type_buffer) < 0) {
         perror("lstat error");
