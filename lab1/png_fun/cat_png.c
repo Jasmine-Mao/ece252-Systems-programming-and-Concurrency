@@ -71,28 +71,43 @@ int read_height(const char *fpath){
 }
 
 int concatenate_idat(const char *fpath, chunk_p *idat){
+    // deflate/compress data and concatenate data onto the idat chunk
     return 0;
 }
 
 int concatenate_pngs(int argc, char* argv[]){
-    simple_PNG_p all_png = malloc(sizeof(struct simple_PNG));
+    simple_PNG_p png_all = malloc(sizeof(struct simple_PNG));
 
-    all_png->p_IDAT = NULL;
-    all_png->p_IEND = NULL;
+    png_all->p_IDAT = NULL;
+    png_all->p_IEND = NULL;
 
-    ihdr_chunk_p all_ihdr = malloc(IHDR_CHUNK_SIZE);
-    all_ihdr -> p_data = read_ihdr(argv[1]);
-    all_png->p_IHDR = all_ihdr;
+    ihdr_chunk_p ihdr_all = malloc(IHDR_CHUNK_SIZE);
+    ihdr_all -> p_data = read_ihdr(argv[1]);
+    png_all->p_IHDR = ihdr_all;
 
-    int all_height = 0;
+    int width_all = png_all->p_IHDR->p_data->width;
+    int height_all = 0;
     for (int i = 1; i < argc; i++){
-        all_height += read_height(argv[i]);
+        height_all += read_height(argv[i]);
     }
 
-    all_png->p_IHDR->p_data->height = all_height;
+    png_all->p_IHDR->p_data->height = height_all;
 
-    free(all_ihdr);
-    free(all_png);
+    chunk_p idat_all = malloc(height_all * (width_all * 4 + 1));  // size of uncompressed idat
+
+    for (int i = 1; i < argc; i++){
+        concatenate_idat(argv[i], png_all->p_IDAT);
+    }
+
+    // inflate data
+
+    // validate crc for ihdr chunk
+    // validate crc for idat chunk
+
+    // write
+
+    free(ihdr_all);
+    free(png_all);
     return 0;
 }
 
