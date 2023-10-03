@@ -130,8 +130,9 @@ int concatenate_pngs(int argc, char* argv[]){
     }
 
     set_png_height(png_all->p_IHDR->p_data, height_all);
+    U64 real_size = height_all * (width_all * 4 + 1);
 
-    U8 * idat_data = malloc(height_all * (width_all * 4 + 1));  // size of uncompressed idat
+    U8 * idat_data = malloc(real_size);  // size of uncompressed idat
     size_t current_idat_end = 0;
 
     for (int i = 1; i < argc; i++){
@@ -141,10 +142,10 @@ int concatenate_pngs(int argc, char* argv[]){
     // deflate data
     U8* deflated_idat = NULL;
 
-    U8 *def_buf = malloc(height_all * (width_all * 4 + 1)); //size of decompressed data
+    U8 *def_buf = malloc(real_size); //size of decompressed data
     size_t def_actual = 0; //var for updated size
     
-    if (mem_def(def_buf, &def_actual, idat_data, height_all * (width_all * 4 + 1), Z_DEFAULT_COMPRESSION) != 0){
+    if (mem_def(def_buf, &def_actual, idat_data, real_size, Z_DEFAULT_COMPRESSION) != 0){
         perror("Error while deflating data");
         exit(1);
     }
@@ -158,9 +159,12 @@ int concatenate_pngs(int argc, char* argv[]){
 
 
     // validate crc for ihdr chunk
-    
+    //unsigned long ihdr_crc = crc();
 
     // validate crc for idat chunk
+    unsigned long idat_crc = crc(def_buf, real_size);
+    png_all->p_IDAT->crc = idat_crc;
+    /* how to apply crc to chunk*/
 
     // write
     free(idat_data);
