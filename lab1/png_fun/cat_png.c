@@ -18,7 +18,8 @@ data_IHDR_p read_ihdr(const char *fpath){ /*memory leak here -- pointer is retur
     FILE *f = fopen(fpath, "rb");
     if (!f) {
         perror("fopen");
-        return NULL;
+        fclose(f);
+        exit(1);
     }
 
     if (fseek(f, 16, SEEK_SET) != 0){
@@ -68,7 +69,7 @@ int read_height(const char *fpath){
     return height;
 }
 
-size_t concatenate_idat(const char *fpath, U8 *idat, size_t current_idat_end){
+size_t concatenate_idat(const char *fpath, U8 *idat, size_t current_idat_end, size_t inflated_size){
     FILE *f = fopen(fpath, "rb");
     if (fseek(f, 33, SEEK_SET) != 0){
         perror("fseek");
@@ -79,11 +80,35 @@ size_t concatenate_idat(const char *fpath, U8 *idat, size_t current_idat_end){
     if(fread(&length, sizeof(int), 1, f) !=1){
         perror("fread");
         fclose(f);
-        return -1;
+        exit(1);
     }
     length = ntohl(length);
-    printf("%d", length);
-    return 0;
+    if (fseek(f, 4, SEEK_CUR) != 0){
+        perror("fseek");
+        fclose(f);
+        exit(1);
+    }
+    U8 *read_buffer = malloc(length);
+    if(fread(read_buffer, sizeof(U8), length, f) != length){
+        perror("fread");
+        free(read_buffer);
+        fclose(f);
+        exit(1);
+    }
+    
+    // inflate data in read buffer and store it in next avaliable memory in idat
+    if (mem_inf(idat + current_idat_end, &inflated_size, read_buffer, length) != 0){
+        perror("Error while inflating data");
+        free(read_buffer);
+        fclose(f);
+        exit(1);
+    }
+    current_idat_end += inflated_size;
+    
+    free(read_buffer);
+    fclose(f);
+
+    return current_idat_end;
 }
 
 int concatenate_pngs(int argc, char* argv[]){
@@ -98,8 +123,10 @@ int concatenate_pngs(int argc, char* argv[]){
 
     int width_all = get_png_width(png_all->p_IHDR->p_data);
     int height_all = 0;
+    int *heights = malloc(sizeof(int)*(argc - 1));
     for (int i = 1; i < argc; i++){
-        height_all += read_height(argv[i]);
+        heights[i-1] = read_height(argv[i]);
+        height_all += heights[i-1];
     }
 
     set_png_height(png_all->p_IHDR->p_data, height_all);
@@ -108,7 +135,7 @@ int concatenate_pngs(int argc, char* argv[]){
     size_t current_idat_end = 0;
 
     for (int i = 1; i < argc; i++){
-        current_idat_end = concatenate_idat(argv[i], idat_data, current_idat_end);
+        current_idat_end = concatenate_idat(argv[i], idat_data, current_idat_end, (heights[i-1]*(width_all+1)));
     }
 
     // inflate data
