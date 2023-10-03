@@ -138,12 +138,35 @@ int concatenate_pngs(int argc, char* argv[]){
         current_idat_end = concatenate_idat(argv[i], idat_data, current_idat_end, (heights[i-1]*(width_all+1)));
     }
 
-    // inflate data
+    // deflate data
+    U8* deflated_idat = NULL;
+
+    U8 *def_buf = malloc(height_all * (width_all * 4 + 1)); //size of decompressed data
+    size_t def_actual = 0; //var for updated size
+    
+    if (mem_def(def_buf, &def_actual, idat_data, height_all * (width_all * 4 + 1), Z_DEFAULT_COMPRESSION) != 0){
+        perror("Error while deflating data");
+        exit(1);
+    }
+
+    deflated_idat = malloc(def_actual);
+    memcpy(deflated_idat, def_buf, def_actual);
+
+    chunk_p idat = malloc(4+4+def_actual+4);
+    png_all->p_IDAT = idat;
+    png_all->p_IDAT->p_data = deflated_idat;
+
+
     // validate crc for ihdr chunk
+    
+
     // validate crc for idat chunk
 
     // write
-
+    free(idat_data);
+    free(deflated_idat);
+    free(idat);
+    free(def_buf);
     free(ihdr_all);
     free(png_all);
     return 0;
