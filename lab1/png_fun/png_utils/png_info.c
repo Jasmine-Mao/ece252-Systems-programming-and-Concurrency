@@ -32,10 +32,7 @@ int is_png(const char *fpath){
     }
     free(read_buffer);
     fclose(f);
-<<<<<<< HEAD
     // free(f);
     
-=======
->>>>>>> 75af8baace90d140440c2d805953e4e0fb87aea7
     return 0;
 }
