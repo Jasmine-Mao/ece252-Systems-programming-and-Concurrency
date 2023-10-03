@@ -18,16 +18,17 @@ data_IHDR_p read_ihdr(const char *fpath){ /*memory leak here -- pointer is retur
     FILE *f = fopen(fpath, "rb");
     if (!f) {
         perror("fopen");
-        return NULL;
-    }
-
-    data_IHDR_p data_reading = malloc(DATA_IHDR_SIZE);
-    if (fseek(f, 16, SEEK_SET) != 0){
-        perror("fseek");
-        free(data_reading);
         fclose(f);
         exit(1);
     }
+
+    if (fseek(f, 16, SEEK_SET) != 0){
+        perror("fseek");
+        fclose(f);
+        exit(1);
+    }
+
+    data_IHDR_p data_reading = malloc(DATA_IHDR_SIZE);
 
     /*header 8 + ihdr len 4 + ihdr type 4 + ihdr data width 4 = 20*/
     if(fread(&(data_reading->width), sizeof(int), 1, f) !=1){
@@ -44,8 +45,6 @@ data_IHDR_p read_ihdr(const char *fpath){ /*memory leak here -- pointer is retur
     data_reading->compression = 0;
     data_reading->filter = 0;
     data_reading->interlace = 0;
-
-    printf("Width: %d\n", data_reading->width);
 
     return data_reading;
 }
@@ -70,9 +69,46 @@ int read_height(const char *fpath){
     return height;
 }
 
-int concatenate_idat(const char *fpath, chunk_p *idat){
-    // deflate/compress data and concatenate data onto the idat chunk
-    return 0;
+size_t concatenate_idat(const char *fpath, U8 *idat, size_t current_idat_end, size_t inflated_size){
+    FILE *f = fopen(fpath, "rb");
+    if (fseek(f, 33, SEEK_SET) != 0){
+        perror("fseek");
+        fclose(f);
+        exit(1);
+    }
+    int length;
+    if(fread(&length, sizeof(int), 1, f) !=1){
+        perror("fread");
+        fclose(f);
+        exit(1);
+    }
+    length = ntohl(length);
+    if (fseek(f, 4, SEEK_CUR) != 0){
+        perror("fseek");
+        fclose(f);
+        exit(1);
+    }
+    U8 *read_buffer = malloc(length);
+    if(fread(read_buffer, sizeof(U8), length, f) != length){
+        perror("fread");
+        free(read_buffer);
+        fclose(f);
+        exit(1);
+    }
+    
+    // inflate data in read buffer and store it in next avaliable memory in idat
+    if (mem_inf(idat + current_idat_end, &inflated_size, read_buffer, length) != 0){
+        perror("Error while inflating data");
+        free(read_buffer);
+        fclose(f);
+        exit(1);
+    }
+    current_idat_end += inflated_size;
+    
+    free(read_buffer);
+    fclose(f);
+
+    return current_idat_end;
 }
 
 int concatenate_pngs(int argc, char* argv[]){
@@ -85,22 +121,24 @@ int concatenate_pngs(int argc, char* argv[]){
     ihdr_all -> p_data = read_ihdr(argv[1]);
     png_all->p_IHDR = ihdr_all;
 
-    int width_all = png_all->p_IHDR->p_data->width;
+    int width_all = get_png_width(png_all->p_IHDR->p_data);
     int height_all = 0;
+    int *heights = malloc(sizeof(int)*(argc - 1));
     for (int i = 1; i < argc; i++){
-        height_all += read_height(argv[i]);
+        heights[i-1] = read_height(argv[i]);
+        height_all += heights[i-1];
     }
 
-    png_all->p_IHDR->p_data->height = height_all;
+    set_png_height(png_all->p_IHDR->p_data, height_all);
 
-    chunk_p idat_all = malloc(height_all * (width_all * 4 + 1));  // size of uncompressed idat
+    U8 * idat_data = malloc(height_all * (width_all * 4 + 1));  // size of uncompressed idat
+    size_t current_idat_end = 0;
 
     for (int i = 1; i < argc; i++){
-        concatenate_idat(argv[i], png_all->p_IDAT);
+        current_idat_end = concatenate_idat(argv[i], idat_data, current_idat_end, (heights[i-1]*(width_all+1)));
     }
 
     // inflate data
-
     // validate crc for ihdr chunk
     // validate crc for idat chunk
 

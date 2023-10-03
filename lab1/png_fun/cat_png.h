@@ -8,6 +8,6 @@
 #include "png_utils/png_info.h"
 
 data_IHDR_p read_ihdr(const char *fpath);
-int concatenate_idat(const char *fpath, chunk_p *idat);
+size_t concatenate_idat(const char *fpath, U8 *idat, size_t current_idat_end, size_t inflated_size);
 int concatenate_pngs(int png_count, char* argv[]);
 int verify_png(const char *fpath);
