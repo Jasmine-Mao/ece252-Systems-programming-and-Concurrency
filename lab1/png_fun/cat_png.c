@@ -30,18 +30,18 @@ data_IHDR_p read_ihdr(const char *fpath){
 
     data_IHDR_p data_reading = malloc(DATA_IHDR_SIZE);
 
-    /*header 8 + ihdr len 4 + ihdr type 4 + ihdr data width 4 = 20*/
+    // Read width (big endian)
     if(fread(&(data_reading->width), sizeof(int), 1, f) !=1){
         perror("Error reading width");
         fclose(f);
         exit(1);
     };
 
-    data_reading->width = ntohl(data_reading->width);
+    // Set other constants
     data_reading->height = 0;
-    data_reading->bit_depth = 1;  
-    data_reading->color_type = 6; 
-    data_reading->compression = 0;  
+    data_reading->bit_depth = 0x08; 
+    data_reading->color_type = 0x06;
+    data_reading->compression = 0;
     data_reading->filter = 0;  
     data_reading->interlace = 0;
 
@@ -117,7 +117,7 @@ int write_png(struct simple_PNG *png_to_write, size_t idat_chunk_size) {
         perror("fopen");
         return -1;
     }
-
+    
     const char png_header[] = {0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
     fwrite(png_header, 1, sizeof(png_header), output_png);
 
@@ -156,7 +156,7 @@ int concatenate_pngs(int argc, char* argv[]){
     //printf("%u\n", png_all->p_IHDR->p_data->height);
 
 
-    int width_all = get_png_width(png_all->p_IHDR->p_data);
+    int width_all = ntohl(get_png_width(png_all->p_IHDR->p_data));
     int height_all = 0;
     int current_height = 0;
     for (int i = 1; i < argc; i++){
@@ -164,7 +164,7 @@ int concatenate_pngs(int argc, char* argv[]){
         height_all += current_height;
     }
 
-    set_png_height(png_all->p_IHDR->p_data, height_all);
+    set_png_height(png_all->p_IHDR->p_data, htonl(height_all));
 
     U64 real_size = height_all * (width_all * 4 + 1);
     U8 * idat_data = malloc(real_size);  // size of uncompressed idat
@@ -205,7 +205,6 @@ int concatenate_pngs(int argc, char* argv[]){
 
     //1229472850
 
-
     // validate crc for idat chunk
     U32 idat_crc = crc(def_buf, def_actual);
     png_all->p_IDAT->crc = htonl(idat_crc);
@@ -215,6 +214,8 @@ int concatenate_pngs(int argc, char* argv[]){
     png_all->p_IDAT->type[1] = 0x44;
     png_all->p_IDAT->type[2] = 0x41;
     png_all->p_IDAT->type[3] = 0x52;
+
+    printf()
 
     chunk_p iend = malloc(12);
     png_all->p_IEND = iend;
