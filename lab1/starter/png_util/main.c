@@ -79,7 +79,7 @@ int main (int argc, char **argv)
         printf("original len = %d, len_def = %lu, len_inf = %lu\n", \
                BUF_LEN, len_def, len_inf);
     } else { /* failure */
-        fprintf(stderr,"mem_def failed. ret = %d.\n", ret);
+        fprintf(stderr,"mem_inf failed. ret = %d.\n", ret);
     }
 
     /* Step 3: Demo how to use the crc utility */
