@@ -28,8 +28,6 @@ int read_ihdr(const char *fpath, data_IHDR_p data_reading){
         exit(1);
     }
 
-    //data_reading = malloc(DATA_IHDR_SIZE);
-
     // Read width (big endian)
     if(fread(&(data_reading->width), sizeof(int), 1, f) !=1){
         perror("Error reading width");
@@ -48,7 +46,6 @@ int read_ihdr(const char *fpath, data_IHDR_p data_reading){
     fclose(f);
     return 0;
 }
-
 
 int read_height(const char *fpath){
     int height = 0;
@@ -148,6 +145,7 @@ int write_png(struct simple_PNG *png_to_write, size_t idat_data_size) {
         return -1;
     }
 
+    free(write_buffer);
     fclose(output_png);
     return 0;
 }
@@ -163,14 +161,9 @@ int concatenate_pngs(int argc, char* argv[]){
     read_ihdr(argv[1], ihdr_all->p_data);
     png_all->p_IHDR = ihdr_all;
 
-<<<<<<< Updated upstream
-    //printf("%u\n", png_all->p_IHDR->p_data->height);
-
 
     int width_all = ntohl(get_png_width(png_all->p_IHDR->p_data));
-=======
-    int width_all = get_png_width(png_all->p_IHDR->p_data);
->>>>>>> Stashed changes
+
     int height_all = 0;
     int current_height = 0;
     for (int i = 1; i < argc; i++){
@@ -233,18 +226,16 @@ int concatenate_pngs(int argc, char* argv[]){
     chunk_p iend = malloc(12);
     png_all->p_IEND = iend;
 
-<<<<<<< Updated upstream
     write_png(png_all, def_actual);
-=======
+
     //printf("%d\n", get_png_width(png_all->p_IHDR->p_data));
     write_png(png_all, idat_chunk_size);
->>>>>>> Stashed changes
 
     free(idat_data);
     free(deflated_idat);
     free(idat);
     free(def_buf);
-    free(ihdr_all->p_data);
+free(ihdr_all->p_data);
     free(ihdr_all);
     free(iend);
     free(png_all);
