@@ -220,7 +220,7 @@ int concatenate_pngs(int argc, char* argv[]){
     png_all->p_IDAT->type[0] = 0x49;
     png_all->p_IDAT->type[1] = 0x44;
     png_all->p_IDAT->type[2] = 0x41;
-    png_all->p_IDAT->type[3] = 0x52;
+    png_all->p_IDAT->type[3] = 0x54;
 
     chunk_p iend = malloc(12);
     png_all->p_IEND = iend;
