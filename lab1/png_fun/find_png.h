@@ -7,4 +7,4 @@
 
 #include <dirent.h>
 
-int find_png(DIR *directory, char filePath[], int numPNGs);
+int find_png(DIR *directory, char filePath[]);

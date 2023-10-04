@@ -20,7 +20,9 @@ memory leaks (valgrind):
 ==90765== ERROR SUMMARY: 18 errors from 1 contexts (suppressed: 0 from 0)
 */
 
-int find_png(DIR *directory, char filePath[], int numPNGs){                                                     /*function that takes a directory, filepath, and the total number of pngs as arguments. recursively searches through files for pngs*/
+int pngs = 0;
+
+int find_png(DIR *directory, char filePath[]){                                                     /*function that takes a directory, filepath, and the total number of pngs as arguments. recursively searches through files for pngs*/
     if (directory != NULL){
         struct dirent *dirent_pointer;
         dirent_pointer = readdir(directory);
@@ -41,7 +43,7 @@ int find_png(DIR *directory, char filePath[], int numPNGs){                     
                     strcat(newPath, "/");                                                                       /*create a new file path that concatenates the old file path with the new directory*/                        
 
                     DIR *newDirectory = opendir(newPath);
-                    find_png(newDirectory, newPath, numPNGs);
+                    find_png(newDirectory, newPath);
                     // free(newDirectory);
                 }
                 else{
@@ -51,7 +53,7 @@ int find_png(DIR *directory, char filePath[], int numPNGs){                     
                         strcpy(temp, filePath);
                         strcat(temp, dirent_pointer->d_name);                                                   /*create a new path for the png file. we will need the full file path for is_png*/
                         if (is_png(temp) == 0){          
-                            numPNGs++;                                                                          /*if is_png returns 0, the file matches the png signature -> png*/
+                            pngs++;                                                                          /*if is_png returns 0, the file matches the png signature -> png*/
                             printf("%s\n", temp);                                                               /*print full png file path*/
                         }
                     }
@@ -62,13 +64,11 @@ int find_png(DIR *directory, char filePath[], int numPNGs){                     
     }
     
     closedir(directory); 
-    if (numPNGs == 0){
+    if (pngs == 0){
         return -1;
     }
     return 0;
 }
-
-
 
 int main (int argc, char* argv[]){
     DIR *directory;
@@ -76,17 +76,11 @@ int main (int argc, char* argv[]){
     if(argc != 2){                                                                                              /*case where no or multiple arguments ar passed. ERROR*/
         printf("ERROR, please enter one (1) argument.\n");
         exit(1);
-    }   
+    }
 
-    /* printf("inputs (DELETE ME AFTER, CHANGE TO argv[1]!!!): ");
-    scanf("%[^\n]%*c", argv[0]); */
-
-
-    if (((directory = opendir(argv[1])) == NULL) || (find_png(directory, argv[1], 0) == -1)){      /*arg2 is the directory we will be looking for. is we try opening a directory with that name and we get NULL, the directory doesnt exist*/
+    if (((directory = opendir(argv[1])) == NULL) || (find_png(directory, argv[1]) == -1)){      /*arg2 is the directory we will be looking for. is we try opening a directory with that name and we get NULL, the directory doesnt exist*/
         printf("findpng: No PNG file found\n");
         return -1;
     }
-
-    free(directory);
     return 0;
 }
