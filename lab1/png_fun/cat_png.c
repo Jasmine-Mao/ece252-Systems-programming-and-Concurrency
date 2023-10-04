@@ -15,7 +15,6 @@
 
 // One-time initialization of non-height IHDR values
 data_IHDR_p read_ihdr(const char *fpath){
- /*also valgrind ./catpng starter/images/uweng.png --leak-check=full and valgrind ./catpng starter/images/uweng.png give different error counts*/
     FILE *f = fopen(fpath, "rb");
     if (!f) {
         perror("fopen");
@@ -39,16 +38,16 @@ data_IHDR_p read_ihdr(const char *fpath){
     };
 
     data_reading->width = ntohl(data_reading->width);
-
     data_reading->height = 0;
-    data_reading->bit_depth = 1;
-    data_reading->color_type = 6;
-    data_reading->compression = 0;
-    data_reading->filter = 0;
+    data_reading->bit_depth = 1;  
+    data_reading->color_type = 6; 
+    data_reading->compression = 0;  
+    data_reading->filter = 0;  
     data_reading->interlace = 0;
 
     return data_reading;
 }
+
 
 int read_height(const char *fpath){
     int height = 0;
@@ -113,7 +112,7 @@ size_t concatenate_idat(const char *fpath, U8 *idat, size_t current_idat_end){
 }
 
 int write_png(struct simple_PNG *png_to_write, size_t idat_chunk_size) {
-    FILE *output_png = fopen("all.png", "w+b");
+    FILE *output_png = fopen("all.png", "wb+");
     if (!output_png) {
         perror("fopen");
         return -1;
@@ -153,6 +152,9 @@ int concatenate_pngs(int argc, char* argv[]){
     ihdr_chunk_p ihdr_all = malloc(IHDR_CHUNK_SIZE);
     ihdr_all -> p_data = read_ihdr(argv[1]);
     png_all->p_IHDR = ihdr_all;
+
+    //printf("%u\n", png_all->p_IHDR->p_data->height);
+
 
     int width_all = get_png_width(png_all->p_IHDR->p_data);
     int height_all = 0;
@@ -194,16 +196,25 @@ int concatenate_pngs(int argc, char* argv[]){
 
     // validate crc for ihdr chunk
     U32 ihdr_crc = crc((unsigned char*)&(png_all->p_IHDR->p_data), DATA_IHDR_SIZE);
-    //for ihdr: crc(,sizeof(ihdr_chunk))
-    png_all->p_IHDR->crc = ihdr_crc;
-    png_all->p_IHDR->length = htonl(DATA_IHDR_SIZE - 8);
+    png_all->p_IHDR->crc = htonl(ihdr_crc);
+    png_all->p_IHDR->length = htonl(DATA_IHDR_SIZE);
+    png_all->p_IHDR->type[0] = 0x49;
+    png_all->p_IHDR->type[1] = 0x48;
+    png_all->p_IHDR->type[2] = 0x44;
+    png_all->p_IHDR->type[3] = 0x52;
+
+    //1229472850
 
 
     // validate crc for idat chunk
     U32 idat_crc = crc(def_buf, def_actual);
-    png_all->p_IDAT->crc = idat_crc;
+    png_all->p_IDAT->crc = htonl(idat_crc);
     //printf("crc_val = %u\n", idat_crc);
     /* how to apply crc to chunk*/
+    png_all->p_IDAT->type[0] = 0x49;
+    png_all->p_IDAT->type[1] = 0x44;
+    png_all->p_IDAT->type[2] = 0x41;
+    png_all->p_IDAT->type[3] = 0x52;
 
     chunk_p iend = malloc(12);
     png_all->p_IEND = iend;
