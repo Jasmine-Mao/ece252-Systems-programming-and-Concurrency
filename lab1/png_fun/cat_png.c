@@ -14,7 +14,7 @@
 #define IEND_CHUNK_SIZE 12
 
 // One-time initialization of non-height IHDR values
-data_IHDR_p read_ihdr(const char *fpath){
+int read_ihdr(const char *fpath, data_IHDR_p data_reading){
     FILE *f = fopen(fpath, "rb");
     if (!f) {
         perror("fopen");
@@ -28,7 +28,7 @@ data_IHDR_p read_ihdr(const char *fpath){
         exit(1);
     }
 
-    data_IHDR_p data_reading = malloc(DATA_IHDR_SIZE);
+    //data_reading = malloc(DATA_IHDR_SIZE);
 
     // Read width (big endian)
     if(fread(&(data_reading->width), sizeof(int), 1, f) !=1){
@@ -45,7 +45,8 @@ data_IHDR_p read_ihdr(const char *fpath){
     data_reading->filter = 0;  
     data_reading->interlace = 0;
 
-    return data_reading;
+    fclose(f);
+    return 0;
 }
 
 
@@ -66,6 +67,7 @@ int read_height(const char *fpath){
         return -1;
     };
     height = ntohl(height);
+    fclose(f);
     return height;
 }
 
@@ -157,13 +159,18 @@ int concatenate_pngs(int argc, char* argv[]){
     png_all->p_IEND = NULL;
 
     ihdr_chunk_p ihdr_all = malloc(IHDR_CHUNK_SIZE);
-    ihdr_all -> p_data = read_ihdr(argv[1]);
+    ihdr_all->p_data = malloc(DATA_IHDR_SIZE);
+    read_ihdr(argv[1], ihdr_all->p_data);
     png_all->p_IHDR = ihdr_all;
 
+<<<<<<< Updated upstream
     //printf("%u\n", png_all->p_IHDR->p_data->height);
 
 
     int width_all = ntohl(get_png_width(png_all->p_IHDR->p_data));
+=======
+    int width_all = get_png_width(png_all->p_IHDR->p_data);
+>>>>>>> Stashed changes
     int height_all = 0;
     int current_height = 0;
     for (int i = 1; i < argc; i++){
@@ -205,6 +212,7 @@ int concatenate_pngs(int argc, char* argv[]){
     U32 ihdr_crc = crc((unsigned char*)&(png_all->p_IHDR->p_data), DATA_IHDR_SIZE);
     png_all->p_IHDR->crc = htonl(ihdr_crc);
     png_all->p_IHDR->length = htonl(DATA_IHDR_SIZE);
+    /* type name for IHDR */
     png_all->p_IHDR->type[0] = 0x49;
     png_all->p_IHDR->type[1] = 0x48;
     png_all->p_IHDR->type[2] = 0x44;
@@ -216,7 +224,7 @@ int concatenate_pngs(int argc, char* argv[]){
     U32 idat_crc = crc(def_buf, def_actual);
     png_all->p_IDAT->crc = htonl(idat_crc);
     //printf("crc_val = %u\n", idat_crc);
-    /* how to apply crc to chunk*/
+    /* type name for IDAT*/
     png_all->p_IDAT->type[0] = 0x49;
     png_all->p_IDAT->type[1] = 0x44;
     png_all->p_IDAT->type[2] = 0x41;
@@ -225,12 +233,18 @@ int concatenate_pngs(int argc, char* argv[]){
     chunk_p iend = malloc(12);
     png_all->p_IEND = iend;
 
+<<<<<<< Updated upstream
     write_png(png_all, def_actual);
+=======
+    //printf("%d\n", get_png_width(png_all->p_IHDR->p_data));
+    write_png(png_all, idat_chunk_size);
+>>>>>>> Stashed changes
 
     free(idat_data);
     free(deflated_idat);
     free(idat);
     free(def_buf);
+    free(ihdr_all->p_data);
     free(ihdr_all);
     free(iend);
     free(png_all);
