@@ -202,9 +202,22 @@ int concatenate_pngs(int argc, char* argv[]){
 
 
     // validate crc for ihdr chunk
-    U32 ihdr_crc = crc((unsigned char*)&(png_all->p_IHDR->p_data), DATA_IHDR_SIZE);
+    unsigned char buffer[DATA_IHDR_SIZE];
+    memcpy(buffer, png_all->p_IHDR->p_data, DATA_IHDR_SIZE);
+
+    // Calculate CRC for the IHDR data
+    U32 ihdr_crc = crc(buffer, DATA_IHDR_SIZE - sizeof(U32));
+
+    // Set the CRC in the ihdr_chunk
     png_all->p_IHDR->crc = htonl(ihdr_crc);
     png_all->p_IHDR->length = htonl(DATA_IHDR_SIZE);
+
+    // Print computed and expected CRC values for debugging
+    //printf("Computed CRC: %08x\n", ihdr_crc);
+    //printf("Expected CRC: %08x\n", ntohl(png_all->p_IHDR->crc));
+
+    //U32 ihdr_crc = crc((unsigned char*)&(png_all->p_IHDR->p_data), DATA_IHDR_SIZE);
+
     /* type name for IHDR */
     png_all->p_IHDR->type[0] = 0x49;
     png_all->p_IHDR->type[1] = 0x48;
@@ -225,17 +238,21 @@ int concatenate_pngs(int argc, char* argv[]){
 
     chunk_p iend = malloc(12);
     png_all->p_IEND = iend;
+    png_all->p_IEND->type[0] = 0x49;
+    png_all->p_IEND->type[1] = 0x45;
+    png_all->p_IEND->type[2] = 0x4E;
+    png_all->p_IEND->type[3] = 0x44;
 
     write_png(png_all, def_actual);
 
     //printf("%d\n", get_png_width(png_all->p_IHDR->p_data));
-    write_png(png_all, idat_chunk_size);
+    //write_png(png_all, idat_chunk_size);
 
     free(idat_data);
     free(deflated_idat);
     free(idat);
     free(def_buf);
-free(ihdr_all->p_data);
+    free(ihdr_all->p_data);
     free(ihdr_all);
     free(iend);
     free(png_all);
