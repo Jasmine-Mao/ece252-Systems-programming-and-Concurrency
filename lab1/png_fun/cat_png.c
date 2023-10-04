@@ -159,11 +159,14 @@ int concatenate_pngs(int argc, char* argv[]){
 
 
     // validate crc for ihdr chunk
-    //unsigned long ihdr_crc = crc();
+    U32 ihdr_crc = 0;
+    //for ihdr: crc()
+    png_all->p_IHDR->crc = ihdr_crc;
 
     // validate crc for idat chunk
-    unsigned long idat_crc = crc(def_buf, real_size);
+    U32 idat_crc = crc(def_buf, def_actual);
     png_all->p_IDAT->crc = idat_crc;
+    //printf("crc_val = %u\n", idat_crc);
     /* how to apply crc to chunk*/
 
     // write
