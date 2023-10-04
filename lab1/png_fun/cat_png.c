@@ -11,10 +11,11 @@
 #include "cat_png.h"
 
 #define IHDR_CHUNK_SIZE 25
+#define IEND_CHUNK_SIZE 12
 
 // One-time initialization of non-height IHDR values
-data_IHDR_p read_ihdr(const char *fpath){ /*memory leak here -- pointer is returned, how do we free?
- also valgrind ./catpng starter/images/uweng.png --leak-check=full and valgrind ./catpng starter/images/uweng.png give different error counts*/
+data_IHDR_p read_ihdr(const char *fpath){
+ /*also valgrind ./catpng starter/images/uweng.png --leak-check=full and valgrind ./catpng starter/images/uweng.png give different error counts*/
     FILE *f = fopen(fpath, "rb");
     if (!f) {
         perror("fopen");
@@ -111,6 +112,22 @@ size_t concatenate_idat(const char *fpath, U8 *idat, size_t current_idat_end){
     return current_idat_end;
 }
 
+int write_png(struct simple_PNG *png_to_write, size_t idat_chunk_size){
+    FILE *output_png = fopen("all.png", "w+b");
+    if (!output_png) {
+        perror("fopen");
+        return -1;
+    }
+    const char png_header[] = {0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
+    fwrite(png_header, 1, sizeof(png_header), output_png);
+    fwrite(png_to_write->p_IHDR, 1, IHDR_CHUNK_SIZE, output_png);
+    fwrite(png_to_write->p_IDAT, 1, idat_chunk_size, output_png);
+    fwrite(png_to_write->p_IEND, 1, IEND_CHUNK_SIZE, output_png);
+
+    fclose(output_png);
+    return 0;
+}
+
 int concatenate_pngs(int argc, char* argv[]){
     simple_PNG_p png_all = malloc(sizeof(struct simple_PNG));
 
@@ -149,11 +166,12 @@ int concatenate_pngs(int argc, char* argv[]){
         perror("Error while deflating data");
         exit(1);
     }
+    size_t idat_chunk_size = 4 + 4 + def_actual + 4;
 
     deflated_idat = malloc(def_actual);
     memcpy(deflated_idat, def_buf, def_actual);
 
-    chunk_p idat = malloc(4+4+def_actual+4);
+    chunk_p idat = malloc(idat_chunk_size);
     png_all->p_IDAT = idat;
     png_all->p_IDAT->p_data = deflated_idat;
 
@@ -171,7 +189,8 @@ int concatenate_pngs(int argc, char* argv[]){
     //printf("crc_val = %u\n", idat_crc);
     /* how to apply crc to chunk*/
 
-    // write
+    write_png(png_all, idat_chunk_size);
+
     free(idat_data);
     free(deflated_idat);
     free(idat);
