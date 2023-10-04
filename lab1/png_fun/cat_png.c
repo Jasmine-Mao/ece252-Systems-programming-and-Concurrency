@@ -112,17 +112,33 @@ size_t concatenate_idat(const char *fpath, U8 *idat, size_t current_idat_end){
     return current_idat_end;
 }
 
-int write_png(struct simple_PNG *png_to_write, size_t idat_chunk_size){
+int write_png(struct simple_PNG *png_to_write, size_t idat_chunk_size) {
     FILE *output_png = fopen("all.png", "w+b");
     if (!output_png) {
         perror("fopen");
         return -1;
     }
+
     const char png_header[] = {0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
     fwrite(png_header, 1, sizeof(png_header), output_png);
-    fwrite(png_to_write->p_IHDR, 1, IHDR_CHUNK_SIZE, output_png);
-    fwrite(png_to_write->p_IDAT, 1, idat_chunk_size, output_png);
-    fwrite(png_to_write->p_IEND, 1, IEND_CHUNK_SIZE, output_png);
+
+    if (fwrite(png_to_write->p_IHDR, 1, IHDR_CHUNK_SIZE, output_png) != IHDR_CHUNK_SIZE) {
+        perror("Error writing IHDR chunk");
+        fclose(output_png);
+        return -1;
+    }
+
+    if (fwrite(png_to_write->p_IDAT, 1, idat_chunk_size, output_png) != idat_chunk_size) {
+        perror("Error writing IDAT chunk");
+        fclose(output_png);
+        return -1;
+    }
+
+    if (fwrite(png_to_write->p_IEND, 1, IEND_CHUNK_SIZE, output_png) != IEND_CHUNK_SIZE) {
+        perror("Error writing IEND chunk");
+        fclose(output_png);
+        return -1;
+    }
 
     fclose(output_png);
     return 0;
@@ -189,6 +205,9 @@ int concatenate_pngs(int argc, char* argv[]){
     //printf("crc_val = %u\n", idat_crc);
     /* how to apply crc to chunk*/
 
+    chunk_p iend = malloc(12);
+    png_all->p_IEND = iend;
+
     write_png(png_all, idat_chunk_size);
 
     free(idat_data);
@@ -196,6 +215,7 @@ int concatenate_pngs(int argc, char* argv[]){
     free(idat);
     free(def_buf);
     free(ihdr_all);
+    free(iend);
     free(png_all);
     return 0;
 }
