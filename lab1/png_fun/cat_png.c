@@ -130,8 +130,8 @@ int concatenate_pngs(int argc, char* argv[]){
     }
 
     set_png_height(png_all->p_IHDR->p_data, height_all);
-    U64 real_size = height_all * (width_all * 4 + 1);
 
+    U64 real_size = height_all * (width_all * 4 + 1);
     U8 * idat_data = malloc(real_size);  // size of uncompressed idat
     size_t current_idat_end = 0;
 
@@ -159,9 +159,11 @@ int concatenate_pngs(int argc, char* argv[]){
 
 
     // validate crc for ihdr chunk
-    U32 ihdr_crc = 0;
-    //for ihdr: crc()
+    U32 ihdr_crc = crc((unsigned char*)&(png_all->p_IHDR->p_data), DATA_IHDR_SIZE);
+    //for ihdr: crc(,sizeof(ihdr_chunk))
     png_all->p_IHDR->crc = ihdr_crc;
+    png_all->p_IHDR->length = htonl(DATA_IHDR_SIZE - 8);
+
 
     // validate crc for idat chunk
     U32 idat_crc = crc(def_buf, def_actual);
