@@ -71,6 +71,8 @@ typedef struct simple_PNG {
  *  @return 0 if the file is a png, -1 otherwise
  */
 int is_png(const char *fpath);
+
+/* Getters and setters for PNG dimensions*/
 int get_png_height(struct data_IHDR *buf);
 int get_png_width(struct data_IHDR *buf);
 void set_png_height(struct data_IHDR *buf, int new_height);
