@@ -13,7 +13,7 @@
 #define IHDR_CHUNK_SIZE 25
 #define IEND_CHUNK_SIZE 12
 
-// One-time initialization of non-height IHDR values
+// One-time initialization of non-height IHDR values. Data field of IHDR of all.png will be passed by reference here 
 int read_ihdr(const char *fpath, data_IHDR_p data_reading){
     FILE *f = fopen(fpath, "rb");
     if (!f) {
@@ -22,7 +22,7 @@ int read_ihdr(const char *fpath, data_IHDR_p data_reading){
         return -1;
     }
 
-    if (fseek(f, 16, SEEK_SET) != 0){
+    if (fseek(f, 16, SEEK_SET) != 0){ /*retrieves width of image, listed IDHR (header 8 + length 4 + type 4 = 16)*/
         perror("fseek");
         fclose(f);
         return -1;
@@ -35,7 +35,7 @@ int read_ihdr(const char *fpath, data_IHDR_p data_reading){
         return -1;
     };
 
-    data_reading->width = ntohl(data_reading->width);
+    data_reading->width = ntohl(data_reading->width); /*convert endian from network to host*/
 
     // Set other constants
     data_reading->height = 0;
@@ -49,7 +49,7 @@ int read_ihdr(const char *fpath, data_IHDR_p data_reading){
     return 0;
 }
 
-int read_height(const char *fpath){
+int read_height(const char *fpath){ /*collective sum of the height of all images passed to the command, to become height of all.png*/
     int height = 0;
     FILE *f = fopen(fpath, "rb");
     if (!f) {
@@ -59,7 +59,7 @@ int read_height(const char *fpath){
     }
     
     fseek(f, 20, SEEK_SET);
-    /*header 8 + ihdr len 4 + ihdr type 4 + ihdr data width 4 = 20*/
+    /*header 8 + ihdr len 4 + ihdr type 4 + ihdr data width 4 = 20 for image height*/
 
     if(fread(&height, sizeof(int), 1, f) !=1){
         perror("Error reading height");
@@ -71,7 +71,7 @@ int read_height(const char *fpath){
     return height;
 }
 
-size_t concatenate_idat(const char *fpath, U8 *idat, size_t current_idat_end){
+size_t concatenate_idat(const char *fpath, U8 *idat, size_t current_idat_end){ /*read, inflates, and concatenates IDAT data*/
     FILE *f = fopen(fpath, "rb");
     if (fseek(f, 33, SEEK_SET) != 0){
         perror("fseek");
@@ -98,7 +98,7 @@ size_t concatenate_idat(const char *fpath, U8 *idat, size_t current_idat_end){
         return -1;
     }
     size_t inflated_size = 0;
-    // inflate data in read buffer and store it in next avaliable memory in idat
+    /* inflate data in read buffer and store it in next avaliable memory in idat*/
     if (mem_inf(idat + current_idat_end, &inflated_size, read_buffer, length) != 0){
         perror("Error while inflating data");
         free(read_buffer);
@@ -124,23 +124,23 @@ int write_png(struct simple_PNG *png_to_write, size_t idat_data_size) {
     size_t output_size = 8 + IHDR_CHUNK_SIZE + idat_data_size + 12 + IEND_CHUNK_SIZE;
     U8 * write_buffer = malloc(output_size);
 
-    // Copy header to write buffer
+    /*Copy header to write buffer*/
     const char png_header[] = {0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
 
-    // Copy header IHDR chunk
+    /* Copy header IHDR chunk*/
     memcpy(write_buffer, png_header, sizeof(png_header));
     memcpy(write_buffer + 8, &(png_to_write->p_IHDR->length), CHUNK_LEN_SIZE);
     memcpy(write_buffer + 12, png_to_write->p_IHDR->type, CHUNK_TYPE_SIZE);
     memcpy(write_buffer + 16, png_to_write->p_IHDR->p_data, DATA_IHDR_SIZE);
     memcpy(write_buffer + 29, &(png_to_write->p_IHDR->crc), CHUNK_CRC_SIZE);
 
-    // Copy IDAT chunk
+    /* Copy IDAT chunk*/
     memcpy(write_buffer + 33, &(png_to_write->p_IDAT->length), CHUNK_LEN_SIZE);
     memcpy(write_buffer + 37, png_to_write->p_IDAT->type, CHUNK_TYPE_SIZE);
     memcpy(write_buffer + 41, png_to_write->p_IDAT->p_data, idat_data_size);
     memcpy(write_buffer + idat_data_size + 41, &(png_to_write->p_IDAT->crc), CHUNK_CRC_SIZE);
 
-    // Copy IEND chunk
+    /* Copy IEND chunk*/
     memcpy(write_buffer + idat_data_size + 45, &(png_to_write->p_IEND->length), CHUNK_LEN_SIZE);
     memcpy(write_buffer + idat_data_size + 49, png_to_write->p_IEND->type, CHUNK_TYPE_SIZE);
     memcpy(write_buffer + idat_data_size + 53, &(png_to_write->p_IEND->crc), CHUNK_CRC_SIZE);
@@ -165,7 +165,7 @@ int concatenate_pngs(int argc, char* argv[]){
 
     ihdr_chunk_p ihdr_all = malloc(IHDR_CHUNK_SIZE);
     ihdr_all->p_data = malloc(DATA_IHDR_SIZE);
-    read_ihdr(argv[1], ihdr_all->p_data);
+    read_ihdr(argv[1], ihdr_all->p_data); 
     png_all->p_IHDR = ihdr_all;
 
     int width_all = get_png_width(png_all->p_IHDR->p_data);
@@ -180,18 +180,18 @@ int concatenate_pngs(int argc, char* argv[]){
     set_png_height(png_all->p_IHDR->p_data, height_all);
 
     U64 real_size = height_all * (width_all * 4 + 1);
-    U8 * idat_data = malloc(real_size);  // size of uncompressed idat
+    U8 * idat_data = malloc(real_size);  /* size of uncompressed idat*/
     size_t current_idat_end = 0;
 
     for (int i = 1; i < argc; i++){
         current_idat_end = concatenate_idat(argv[i], idat_data, current_idat_end);
     }
 
-    // deflate data
+    /* deflate data*/
     U8* deflated_idat = NULL;
 
-    U8 *def_buf = malloc(real_size); //size of decompressed data
-    size_t def_actual = 0; //var for updated size
+    U8 *def_buf = malloc(real_size); /*size of decompressed data*/
+    size_t def_actual = 0; /*var for updated size*/
     
     if (mem_def(def_buf, &def_actual, idat_data, real_size, Z_DEFAULT_COMPRESSION) != 0){
         perror("Error while deflating data");
@@ -211,18 +211,18 @@ int concatenate_pngs(int argc, char* argv[]){
     png_all->p_IDAT = idat;
     png_all->p_IDAT->p_data = deflated_idat;
 
-    // Set height and width to big endian before copy
+    /* Set height and width to big endian before copy*/
     int big_end_height = htonl(get_png_height(png_all->p_IHDR->p_data));
     int big_end_width = htonl(get_png_width(png_all->p_IHDR->p_data));
     set_png_height(png_all->p_IHDR->p_data, big_end_height);
     set_png_width(png_all->p_IHDR->p_data, big_end_width);
 
-    // Store data in buffer to calculate crc
+    /* Store data in buffer to calculate crc*/
     U8 ihdr_crc_buffer[DATA_IHDR_SIZE + 4];
     memcpy(ihdr_crc_buffer, "IHDR", 4);
     memcpy(ihdr_crc_buffer + 4, png_all->p_IHDR->p_data, DATA_IHDR_SIZE);
 
-    // Calculate and set CRC for the IHDR chunk
+    /* Calculate and set CRC for the IHDR chunk*/
     U32 ihdr_crc = crc(ihdr_crc_buffer, DATA_IHDR_SIZE + 4);
     png_all->p_IHDR->crc = htonl(ihdr_crc);
     png_all->p_IHDR->length = htonl(DATA_IHDR_SIZE);
@@ -233,6 +233,7 @@ int concatenate_pngs(int argc, char* argv[]){
     png_all->p_IHDR->type[2] = 0x44;
     png_all->p_IHDR->type[3] = 0x52;
 
+    /*Set crc for IDAT*/
     unsigned char idat_crc_buffer[def_actual + 4];
     memcpy(idat_crc_buffer, "IDAT", 4);
     memcpy(idat_crc_buffer + 4, png_all->p_IDAT->p_data, def_actual);
@@ -246,6 +247,7 @@ int concatenate_pngs(int argc, char* argv[]){
     png_all->p_IDAT->type[2] = 0x41;
     png_all->p_IDAT->type[3] = 0x54;
 
+    /*type name and allocation for IEND*/
     png_all->p_IEND = malloc(12);
     png_all->p_IEND->length = 0;
     png_all->p_IEND->type[0] = 0x49;
@@ -253,6 +255,7 @@ int concatenate_pngs(int argc, char* argv[]){
     png_all->p_IEND->type[2] = 0x4E;
     png_all->p_IEND->type[3] = 0x44;
 
+    /*set crc for IEND*/
     U32 iend_crc = crc(png_all->p_IEND->type, 4);
     iend_crc = htonl(iend_crc);
 
@@ -289,7 +292,7 @@ int main(int argc, char* argv[]){
         fprintf(stderr, "Missing argument\n");
         return -1;
     }
-      for (int i = 1; i < argc; ++i) {
+      for (int i = 1; i < argc; ++i) { /*verify each png (index 0 skipped as the 0th index is the command)*/
         if (verify_png(argv[i]) < 0){
             fprintf(stderr, "%s: File is not a PNG\n", argv[i]);
             return -1;
