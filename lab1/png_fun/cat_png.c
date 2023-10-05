@@ -260,6 +260,7 @@ int concatenate_pngs(int argc, char* argv[]){
 
     write_png(png_all, def_actual);
     
+    free(png_all->p_IEND);
     free(png_all);
     free(idat_data);
     free(deflated_idat);
