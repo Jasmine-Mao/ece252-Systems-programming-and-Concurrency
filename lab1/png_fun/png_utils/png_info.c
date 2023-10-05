@@ -19,7 +19,7 @@ int is_png(const char *fpath){
     }
 
     char *read_buffer = malloc(4);
-    fread(read_buffer, sizeof(read_buffer), 1, f);
+    fread(read_buffer, 4, 1, f);
 
     // verify bytes 2-4 make up correct png signature
     if ((read_buffer[1] != 0x50) ||
