@@ -246,7 +246,8 @@ int concatenate_pngs(int argc, char* argv[]){
     png_all->p_IDAT->type[2] = 0x41;
     png_all->p_IDAT->type[3] = 0x54;
 
-    png_all->p_IEND = malloc(12);
+    png_all->p_IEND = malloc(sizeof(struct chunk));
+    png_all->p_IEND->p_data = NULL;
     png_all->p_IEND->length = 0;
     png_all->p_IEND->type[0] = 0x49;
     png_all->p_IEND->type[1] = 0x45;
