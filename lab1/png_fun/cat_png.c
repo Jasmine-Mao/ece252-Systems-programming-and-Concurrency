@@ -35,6 +35,8 @@ int read_ihdr(const char *fpath, data_IHDR_p data_reading){
         exit(1);
     };
 
+    data_reading->width = ntohl(data_reading->width);
+
     // Set other constants
     data_reading->height = 0;
     data_reading->bit_depth = 0x08; 
@@ -120,8 +122,16 @@ int write_png(struct simple_PNG *png_to_write, size_t idat_data_size) {
     size_t output_size = 8 + IHDR_CHUNK_SIZE + idat_data_size + 12 + IEND_CHUNK_SIZE;
     U8 * write_buffer = malloc(output_size);
 
+    // Copy header to write buffer
     const char png_header[] = {0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
-    // Copy header and IHDR chunk to write buffer
+
+    // Set height and width to big endian before copy
+    int big_end_height = htonl(get_png_height(png_to_write->p_IHDR->p_data));
+    int big_end_width = htonl(get_png_width(png_to_write->p_IHDR->p_data));
+    set_png_height(png_to_write->p_IHDR->p_data, big_end_height);
+    set_png_width(png_to_write->p_IHDR->p_data, big_end_width);
+
+    // Copy header IHDR chunk
     memcpy(write_buffer, png_header, sizeof(png_header));
     memcpy(write_buffer + 8, &(png_to_write->p_IHDR->length), CHUNK_LEN_SIZE);
     memcpy(write_buffer + 12, png_to_write->p_IHDR->type, CHUNK_TYPE_SIZE);
@@ -161,8 +171,7 @@ int concatenate_pngs(int argc, char* argv[]){
     read_ihdr(argv[1], ihdr_all->p_data);
     png_all->p_IHDR = ihdr_all;
 
-
-    int width_all = ntohl(get_png_width(png_all->p_IHDR->p_data));
+    int width_all = get_png_width(png_all->p_IHDR->p_data);
 
     int height_all = 0;
     int current_height = 0;
@@ -171,7 +180,7 @@ int concatenate_pngs(int argc, char* argv[]){
         height_all += current_height;
     }
 
-    set_png_height(png_all->p_IHDR->p_data, htonl(height_all));
+    set_png_height(png_all->p_IHDR->p_data, height_all);
 
     U64 real_size = height_all * (width_all * 4 + 1);
     U8 * idat_data = malloc(real_size);  // size of uncompressed idat
@@ -200,23 +209,15 @@ int concatenate_pngs(int argc, char* argv[]){
     png_all->p_IDAT = idat;
     png_all->p_IDAT->p_data = deflated_idat;
 
+    // Store data in buffer to calculate crc
+    unsigned char ihdr_crc_buffer[DATA_IHDR_SIZE + 4];
+    memcpy(ihdr_crc_buffer, "IHDR", 4);
+    memcpy(ihdr_crc_buffer + 4, png_all->p_IHDR->p_data, DATA_IHDR_SIZE);
 
-    // validate crc for ihdr chunk
-    unsigned char buffer[DATA_IHDR_SIZE];
-    memcpy(buffer, png_all->p_IHDR->p_data, DATA_IHDR_SIZE);
-
-    // Calculate CRC for the IHDR data
-    U32 ihdr_crc = crc(buffer, DATA_IHDR_SIZE - sizeof(U32));
-
-    // Set the CRC in the ihdr_chunk
+    // Calculate and set CRC for the IHDR chunk
+    U32 ihdr_crc = crc(ihdr_crc_buffer, DATA_IHDR_SIZE + 4);
     png_all->p_IHDR->crc = htonl(ihdr_crc);
     png_all->p_IHDR->length = htonl(DATA_IHDR_SIZE);
-
-    // Print computed and expected CRC values for debugging
-    //printf("Computed CRC: %08x\n", ihdr_crc);
-    //printf("Expected CRC: %08x\n", ntohl(png_all->p_IHDR->crc));
-
-    //U32 ihdr_crc = crc((unsigned char*)&(png_all->p_IHDR->p_data), DATA_IHDR_SIZE);
 
     /* type name for IHDR */
     png_all->p_IHDR->type[0] = 0x49;
@@ -224,12 +225,12 @@ int concatenate_pngs(int argc, char* argv[]){
     png_all->p_IHDR->type[2] = 0x44;
     png_all->p_IHDR->type[3] = 0x52;
 
-    //1229472850
-
-    // validate crc for idat chunk
-    U32 idat_crc = crc(def_buf, def_actual);
+    unsigned char idat_crc_buffer[def_actual + 4];
+    memcpy(idat_crc_buffer, "IDAT", 4);
+    memcpy(idat_crc_buffer + 4, png_all->p_IDAT->p_data, def_actual);
+    U32 idat_crc = crc(idat_crc_buffer, def_actual + 4);
     png_all->p_IDAT->crc = htonl(idat_crc);
-    //printf("crc_val = %u\n", idat_crc);
+
     /* type name for IDAT*/
     png_all->p_IDAT->type[0] = 0x49;
     png_all->p_IDAT->type[1] = 0x44;
@@ -244,9 +245,6 @@ int concatenate_pngs(int argc, char* argv[]){
     png_all->p_IEND->type[3] = 0x44;
 
     write_png(png_all, def_actual);
-
-    //printf("%d\n", get_png_width(png_all->p_IHDR->p_data));
-    //write_png(png_all, idat_chunk_size);
 
     free(idat_data);
     free(deflated_idat);

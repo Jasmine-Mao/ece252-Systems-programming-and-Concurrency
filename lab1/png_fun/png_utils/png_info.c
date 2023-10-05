@@ -34,5 +34,8 @@ int is_png(const char *fpath){
     fclose(f);
     return 0;
 }
-void set_png_height(struct data_IHDR *buf, int new_height){buf->height = new_height;}
+int get_png_height(struct data_IHDR *buf){return buf->height;}
 int get_png_width(struct data_IHDR *buf){return buf->width;}
+void set_png_height(struct data_IHDR *buf, int new_height){buf->height = new_height;}
+void set_png_width(struct data_IHDR *buf, int new_width){buf->width = new_width;}
+
