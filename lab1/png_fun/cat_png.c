@@ -210,7 +210,7 @@ int concatenate_pngs(int argc, char* argv[]){
     png_all->p_IDAT->p_data = deflated_idat;
 
     // Store data in buffer to calculate crc
-    unsigned char ihdr_crc_buffer[DATA_IHDR_SIZE + 4];
+    U8 ihdr_crc_buffer[DATA_IHDR_SIZE + 4];
     memcpy(ihdr_crc_buffer, "IHDR", 4);
     memcpy(ihdr_crc_buffer + 4, png_all->p_IHDR->p_data, DATA_IHDR_SIZE);
 
@@ -230,6 +230,7 @@ int concatenate_pngs(int argc, char* argv[]){
     memcpy(idat_crc_buffer + 4, png_all->p_IDAT->p_data, def_actual);
     U32 idat_crc = crc(idat_crc_buffer, def_actual + 4);
     png_all->p_IDAT->crc = htonl(idat_crc);
+    png_all->p_IDAT->length = htonl(idat_chunk_size);
 
     /* type name for IDAT*/
     png_all->p_IDAT->type[0] = 0x49;
