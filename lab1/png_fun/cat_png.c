@@ -246,14 +246,20 @@ int concatenate_pngs(int argc, char* argv[]){
     png_all->p_IDAT->type[2] = 0x41;
     png_all->p_IDAT->type[3] = 0x54;
 
-    chunk_p iend = malloc(12);
-    png_all->p_IEND = iend;
+    png_all->p_IEND = malloc(12);
+    png_all->p_IEND->length = 0;
     png_all->p_IEND->type[0] = 0x49;
     png_all->p_IEND->type[1] = 0x45;
     png_all->p_IEND->type[2] = 0x4E;
     png_all->p_IEND->type[3] = 0x44;
 
+    U32 iend_crc = crc(png_all->p_IEND->type, 4);
+    iend_crc = htonl(iend_crc);
+
+    png_all->p_IEND->crc = iend_crc;
+
     write_png(png_all, def_actual);
+    
     free(png_all);
     free(idat_data);
     free(deflated_idat);
@@ -261,7 +267,6 @@ int concatenate_pngs(int argc, char* argv[]){
     free(def_buf);
     free(ihdr_all->p_data);
     free(ihdr_all);
-    free(iend);
     return 0;
 }
 
