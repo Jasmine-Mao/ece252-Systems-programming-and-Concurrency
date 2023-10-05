@@ -19,20 +19,20 @@ int read_ihdr(const char *fpath, data_IHDR_p data_reading){
     if (!f) {
         perror("fopen");
         fclose(f);
-        exit(1);
+        return -1;
     }
 
     if (fseek(f, 16, SEEK_SET) != 0){
         perror("fseek");
         fclose(f);
-        exit(1);
+        return -1;
     }
 
     // Read width (big endian)
     if(fread(&(data_reading->width), sizeof(int), 1, f) !=1){
         perror("Error reading width");
         fclose(f);
-        exit(1);
+        return -1;
     };
 
     data_reading->width = ntohl(data_reading->width);
@@ -54,6 +54,7 @@ int read_height(const char *fpath){
     FILE *f = fopen(fpath, "rb");
     if (!f) {
         perror("fopen");
+        fclose(f);
         return -1;
     }
     
@@ -75,26 +76,26 @@ size_t concatenate_idat(const char *fpath, U8 *idat, size_t current_idat_end){
     if (fseek(f, 33, SEEK_SET) != 0){
         perror("fseek");
         fclose(f);
-        exit(1);
+        return -1;
     }
     int length;
     if(fread(&length, sizeof(int), 1, f) !=1){
         perror("fread");
         fclose(f);
-        exit(1);
+        return -1;
     }
     length = ntohl(length);
     if (fseek(f, 4, SEEK_CUR) != 0){
         perror("fseek");
         fclose(f);
-        exit(1);
+        return -1;
     }
     U8 *read_buffer = malloc(length);
     if(fread(read_buffer, sizeof(U8), length, f) != length){
         perror("fread");
         free(read_buffer);
         fclose(f);
-        exit(1);
+        return -1;
     }
     size_t inflated_size = 0;
     // inflate data in read buffer and store it in next avaliable memory in idat
@@ -102,7 +103,7 @@ size_t concatenate_idat(const char *fpath, U8 *idat, size_t current_idat_end){
         perror("Error while inflating data");
         free(read_buffer);
         fclose(f);
-        exit(1);
+        return -1;
     }
     current_idat_end += inflated_size;
     
@@ -116,6 +117,7 @@ int write_png(struct simple_PNG *png_to_write, size_t idat_data_size) {
     FILE *output_png = fopen("all.png", "wb+");
     if (!output_png) {
         perror("fopen");
+        fclose(output_png);
         return -1;
     }
 
@@ -151,6 +153,7 @@ int write_png(struct simple_PNG *png_to_write, size_t idat_data_size) {
 
     if (fwrite(write_buffer, 1, output_size, output_png) != output_size) {
         perror("Error writing concatenated png");
+        free(write_buffer);
         fclose(output_png);
         return -1;
     }
@@ -198,7 +201,12 @@ int concatenate_pngs(int argc, char* argv[]){
     
     if (mem_def(def_buf, &def_actual, idat_data, real_size, Z_DEFAULT_COMPRESSION) != 0){
         perror("Error while deflating data");
-        exit(1);
+        free(png_all);
+        free(ihdr_all->p_data);
+        free(ihdr_all);
+        free(idat_data);
+        free(def_buf);
+        return -1;
     }
     size_t idat_chunk_size = 4 + 4 + def_actual + 4;
 
@@ -246,7 +254,7 @@ int concatenate_pngs(int argc, char* argv[]){
     png_all->p_IEND->type[3] = 0x44;
 
     write_png(png_all, def_actual);
-
+    free(png_all);
     free(idat_data);
     free(deflated_idat);
     free(idat);
@@ -254,7 +262,6 @@ int concatenate_pngs(int argc, char* argv[]){
     free(ihdr_all->p_data);
     free(ihdr_all);
     free(iend);
-    free(png_all);
     return 0;
 }
 
@@ -274,12 +281,12 @@ int verify_png(const char *fpath){ /*verifying a correct file path to avoid segm
 int main(int argc, char* argv[]){
     if (argc < 2){
         fprintf(stderr, "Missing argument\n");
-        exit(1);
+        return -1;
     }
       for (int i = 1; i < argc; ++i) {
         if (verify_png(argv[i]) < 0){
             fprintf(stderr, "%s: File is not a PNG\n", argv[i]);
-            exit(1);
+            return -1;
         } 
     }
     
