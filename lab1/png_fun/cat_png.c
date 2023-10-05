@@ -230,7 +230,7 @@ int concatenate_pngs(int argc, char* argv[]){
     memcpy(idat_crc_buffer + 4, png_all->p_IDAT->p_data, def_actual);
     U32 idat_crc = crc(idat_crc_buffer, def_actual + 4);
     png_all->p_IDAT->crc = htonl(idat_crc);
-    png_all->p_IDAT->length = htonl(idat_chunk_size);
+    png_all->p_IDAT->length = htonl(def_actual);
 
     /* type name for IDAT*/
     png_all->p_IDAT->type[0] = 0x49;
