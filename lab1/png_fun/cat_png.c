@@ -127,12 +127,6 @@ int write_png(struct simple_PNG *png_to_write, size_t idat_data_size) {
     // Copy header to write buffer
     const char png_header[] = {0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
 
-    // Set height and width to big endian before copy
-    int big_end_height = htonl(get_png_height(png_to_write->p_IHDR->p_data));
-    int big_end_width = htonl(get_png_width(png_to_write->p_IHDR->p_data));
-    set_png_height(png_to_write->p_IHDR->p_data, big_end_height);
-    set_png_width(png_to_write->p_IHDR->p_data, big_end_width);
-
     // Copy header IHDR chunk
     memcpy(write_buffer, png_header, sizeof(png_header));
     memcpy(write_buffer + 8, &(png_to_write->p_IHDR->length), CHUNK_LEN_SIZE);
@@ -216,6 +210,12 @@ int concatenate_pngs(int argc, char* argv[]){
     chunk_p idat = malloc(idat_chunk_size);
     png_all->p_IDAT = idat;
     png_all->p_IDAT->p_data = deflated_idat;
+
+    // Set height and width to big endian before copy
+    int big_end_height = htonl(get_png_height(png_all->p_IHDR->p_data));
+    int big_end_width = htonl(get_png_width(png_all->p_IHDR->p_data));
+    set_png_height(png_all->p_IHDR->p_data, big_end_height);
+    set_png_width(png_all->p_IHDR->p_data, big_end_width);
 
     // Store data in buffer to calculate crc
     U8 ihdr_crc_buffer[DATA_IHDR_SIZE + 4];
