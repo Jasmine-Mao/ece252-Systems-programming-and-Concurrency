@@ -6,8 +6,11 @@
 #include<ctype.h> 
 #include<getopt.h>
 
-void paster(int numThreads, int picture){
+void *paster(void* threadNumber){
     // function that takes the number of threads and the picture to look for
+    int *number = (int*)threadNumber;
+    printf("i'm thread number %d\n", *number);
+    pthread_exit(NULL);
 }
 
 int main(int argc, char* argv[]){
@@ -16,8 +19,7 @@ int main(int argc, char* argv[]){
     int imgNumber = 1;
 
     while((c = getopt(argc, argv, "t:n:")) != -1){
-        // look through options given
-        switch(c){
+          switch(c){
             case't':
             numThreads = strtoul(optarg, NULL, 10);
             if(numThreads <= 0){
@@ -36,12 +38,25 @@ int main(int argc, char* argv[]){
             break;
             default:
                 // if nothing was passed, we just use the defauly value
-                break;
+            break;
         }
     }
 
     printf("number of threads: %d\n", numThreads);
     printf("image number: %d\n", imgNumber);
+
+    pthread_t threads[numThreads];
+
+    for(int x = 0; x < numThreads; x++){
+        int* arg;
+        *arg = x;
+        pthread_create(&threads[x], NULL, paster, arg);
+        pthread_join(threads[x], NULL);
+    }
+
+    /* for(int x = 0; x < numThreads; x++){
+        pthread_join(threads[x], NULL);
+    } */
 
     return 0;
 }
