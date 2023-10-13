@@ -1,11 +1,12 @@
-#include<stdio.h>
-#include<stdlib.h>
-#include<pthread.h>
-#include<unistd.h>
-#include<sys/types.h>
-#include<ctype.h> 
-#include<getopt.h>
-#include<curl/curl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <ctype.h> 
+#include <getopt.h>
+#include <curl/curl.h>
+#include "paster.h"
 
 struct thread_args
 {
