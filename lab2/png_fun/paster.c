@@ -11,17 +11,24 @@ struct thread_args
 {
     // variables here
     int threadNumber;   // for debugging purposes only!!
+    CURL *curl_handle;
 };
 
 struct thread_return
 {
     int threadNumber;   // for debugging purposes only!!
+    int returnSuccess;  // returns a number; based on that number we know if the thread has succeeded or failed in its task
 };
 
 void *fetchImage(void *arg){    // currently just spits out what number the thread is; currently for debugging purposes
     struct thread_args *p_in = arg;
     struct thread_return *p_out = malloc(sizeof(struct thread_return));
     printf("i'm thread number %d\n", p_in->threadNumber);
+
+    /*one we get here, we actually do stuff, everything above is just to make sure we are in the right thread*/
+    (p_in->curl_handle[p_in->threadNumber]) = curl_easy_init();
+
+
 
     p_out->threadNumber = p_in->threadNumber;
     return((void*)p_out);
@@ -66,6 +73,8 @@ int main(int argc, char* argv[]){
     // init the threads
     pthread_t threads[numThreads];
 
+    CURL *curl_handle[numThreads];
+
     // init return value and input arguments
     struct thread_return *results[numThreads];
     struct thread_args in_params[numThreads];
@@ -73,15 +82,18 @@ int main(int argc, char* argv[]){
     curl_global_init(CURL_GLOBAL_DEFAULT);  // init curl environment; must be called before any curl operations can work
 
     for(int x = 0; x < numThreads; x++){
-        in_params[x].threadNumber = x + 1;
+        in_params[x].threadNumber = x;
+        in_params[x].curl_handle = curl_handle[x];
         pthread_create(&threads[x], NULL, fetchImage, &in_params[x]);
         // create [numThreads] threads; arg passed is the number assigned to each thread
     }
 
     for(int i = 0; i < numThreads; i++){
         pthread_join(threads[i], NULL);
+        printf("thread %d joined\n", i);
         // join all threads
     }
+    printf("all threads joined\n");
 
     curl_global_cleanup();  // clean up curl environment before return
     return 0;
