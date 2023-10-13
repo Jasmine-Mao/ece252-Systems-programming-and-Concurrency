@@ -5,12 +5,26 @@
 #include<sys/types.h>
 #include<ctype.h> 
 #include<getopt.h>
+#include<curl/curl.h>
 
-void *paster(void* threadNumber){
+struct thread_args
+{
+    // variables here
+    int threadNumber;
+};
+
+struct thread_return
+{
+    int threadNumber;   // for debugging purposes only!!
+};
+
+void *paster(void *arg){
     // function that takes the number of threads and the picture to look for
-    int *number = (int*)threadNumber;
-    printf("i'm thread number %d\n", *number);
-    pthread_exit(NULL);
+    struct thread_args *p_in = arg;
+    struct thread_return *p_out = malloc(sizeof(struct thread_return));
+    printf("i'm thread number %d\n", p_in->threadNumber);
+    p_out->threadNumber = p_in->threadNumber;
+    return((void*)p_out);
 }
 
 int main(int argc, char* argv[]){
@@ -47,16 +61,20 @@ int main(int argc, char* argv[]){
 
     pthread_t threads[numThreads];
 
+    struct thread_ret *results[numThreads];
+    struct thread_args in_params[numThreads];
+
+    curl_global_init(CURL_GLOBAL_DEFAULT);  // init curl environment; must be called before any curl operations can work
+
     for(int x = 0; x < numThreads; x++){
-        int* arg;
-        *arg = x;
-        pthread_create(&threads[x], NULL, paster, arg);
+        in_params[x].threadNumber = x + 1;
+        pthread_create(&threads[x], NULL, paster, &in_params[x]);
         pthread_join(threads[x], NULL);
     }
 
     /* for(int x = 0; x < numThreads; x++){
         pthread_join(threads[x], NULL);
     } */
-
+    curl_global_cleanup();  // clean up curl environment before return
     return 0;
 }
