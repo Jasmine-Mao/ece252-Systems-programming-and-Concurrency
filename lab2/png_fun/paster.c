@@ -6,14 +6,23 @@
 #include <ctype.h> 
 #include <getopt.h>
 #include <curl/curl.h>
+#include <string.h>
+#include <stdatomic.h>
+#include <stdbool.h>
 #include "paster.h"
 
+#define URL_1 "http://ece252-1.uwaterloo.ca:2520/image?img="
+#define URL_2 "http://ece252-2.uwaterloo.ca:2520/image?img="
+#define URL_3 "http://ece252-3.uwaterloo.ca:2520/image?img="
 
 struct thread_args
 {
     // variables here
     int threadNumber;   // for debugging purposes only!!
     CURL *curl_handle;
+    int imageNumber;
+    _Atomic bool *boolPtr;  // pointer to 
+    _Atomic int *intPtr;
 };
 
 struct thread_return
@@ -22,16 +31,58 @@ struct thread_return
     int returnSuccess;  // returns a number; based on that number we know if the thread has succeeded or failed in its task
 };
 
+
+atomic_bool checkImg[50] = {false};
+
+atomic_int numFetched = 0;
+
+
+
 void *fetchImage(void *arg){    // currently just spits out what number the thread is; currently for debugging purposes
+    /*INIT STUFF FOR CURL HANDLING*/
     struct thread_args *p_in = arg;
     struct thread_return *p_out = malloc(sizeof(struct thread_return));
-    printf("i'm thread number %d\n", p_in->threadNumber);
 
-    /*one we get here, we actually do stuff, everything above is just to make sure we are in the right thread*/
     p_in->curl_handle = curl_easy_init();
+    CURLcode res;
+    char url[256];
 
-    if(p_in->curl_handle){
-        printf("curl handle for %d initialized\n", p_in->threadNumber);
+    /*SEND THREAD TO APPROPRIATE SERVER*/
+    int server = p_in->threadNumber % 3;
+    if(server == 1)
+        strcpy(url, URL_1);
+    else if(server == 2)
+        strcpy(url, URL_2);
+    else if(server == 0)
+        strcpy(url, URL_3);
+
+    /*FULLY CONSTRUCT URL WITH THE IMAGE NUMBER*/
+    char img = p_in->imageNumber + '0';
+    strcat(url, &img);  // append image number to end of url to get the full url
+    printf("url: %s\n", url);
+
+    curl_easy_setopt(p_in->curl_handle, CURLOPT_URL, url);
+
+    /*ACTUAL FETCHING STUFF*/
+    while(numFetched < 50){
+        /*FIRST GET THE IMAGE*/
+        // res = curl_easy_perform(p_in->curl_handle);
+
+        /*CHECK HEADER FOR IMAGE NUMBER*/
+
+        /*SEE IF IMAGE NUMBER HAS NOT BEEN FETCHED*/
+
+        /*IF UNFETCHED, GET HERE*/
+
+        /*ADD TO BUFFER*/
+
+        /*CHECK OFF THIS IMAGE IN THE ARRAY*/
+
+        /*INCREMENT NUM FETCHED*/
+
+        numFetched++;
+        checkImg[p_in->threadNumber] = true;
+        printf("%d, thread %d\n", numFetched, p_in->threadNumber);
     }
 
     curl_easy_cleanup(p_in->curl_handle);
@@ -89,6 +140,9 @@ int main(int argc, char* argv[]){
     for(int x = 0; x < numThreads; x++){
         in_params[x].threadNumber = x;
         in_params[x].curl_handle = curl_handle[x];
+        in_params[x].imageNumber = imgNumber;
+        /* in_params[x].boolPtr = checkImg;
+        in_params[x].intPtr = &numFetched; */
         pthread_create(&threads[x], NULL, fetchImage, &in_params[x]);
         // create [numThreads] threads; arg passed is the number assigned to each thread
     }
