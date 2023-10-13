@@ -7,6 +7,7 @@
 #include<getopt.h>
 #include<curl/curl.h>
 
+
 struct thread_args
 {
     // variables here
@@ -26,10 +27,13 @@ void *fetchImage(void *arg){    // currently just spits out what number the thre
     printf("i'm thread number %d\n", p_in->threadNumber);
 
     /*one we get here, we actually do stuff, everything above is just to make sure we are in the right thread*/
-    (p_in->curl_handle[p_in->threadNumber]) = curl_easy_init();
+    p_in->curl_handle = curl_easy_init();
 
+    if(p_in->curl_handle){
+        printf("curl handle for %d initialized\n", p_in->threadNumber);
+    }
 
-
+    curl_easy_cleanup(p_in->curl_handle);
     p_out->threadNumber = p_in->threadNumber;
     return((void*)p_out);
 }
