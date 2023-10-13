@@ -10,7 +10,7 @@
 struct thread_args
 {
     // variables here
-    int threadNumber;
+    int threadNumber;   // for debugging purposes only!!
 };
 
 struct thread_return
@@ -18,11 +18,11 @@ struct thread_return
     int threadNumber;   // for debugging purposes only!!
 };
 
-void *paster(void *arg){
-    // function that takes the number of threads and the picture to look for
+void *fetchImage(void *arg){    // currently just spits out what number the thread is; currently for debugging purposes
     struct thread_args *p_in = arg;
     struct thread_return *p_out = malloc(sizeof(struct thread_return));
     printf("i'm thread number %d\n", p_in->threadNumber);
+
     p_out->threadNumber = p_in->threadNumber;
     return((void*)p_out);
 }
@@ -32,6 +32,9 @@ int main(int argc, char* argv[]){
     int numThreads = 1; // default num of threads and images
     int imgNumber = 1;
 
+    // option stuff
+
+    // default to 1 thread, image 1
     while((c = getopt(argc, argv, "t:n:")) != -1){
           switch(c){
             case't':
@@ -56,25 +59,30 @@ int main(int argc, char* argv[]){
         }
     }
 
+    // for debugging purposes; will be removed later
     printf("number of threads: %d\n", numThreads);
     printf("image number: %d\n", imgNumber);
 
+    // init the threads
     pthread_t threads[numThreads];
 
-    struct thread_ret *results[numThreads];
+    // init return value and input arguments
+    struct thread_return *results[numThreads];
     struct thread_args in_params[numThreads];
 
     curl_global_init(CURL_GLOBAL_DEFAULT);  // init curl environment; must be called before any curl operations can work
 
     for(int x = 0; x < numThreads; x++){
         in_params[x].threadNumber = x + 1;
-        pthread_create(&threads[x], NULL, paster, &in_params[x]);
-        pthread_join(threads[x], NULL);
+        pthread_create(&threads[x], NULL, fetchImage, &in_params[x]);
+        // create [numThreads] threads; arg passed is the number assigned to each thread
     }
 
-    /* for(int x = 0; x < numThreads; x++){
-        pthread_join(threads[x], NULL);
-    } */
+    for(int i = 0; i < numThreads; i++){
+        pthread_join(threads[i], NULL);
+        // join all threads
+    }
+
     curl_global_cleanup();  // clean up curl environment before return
     return 0;
 }
