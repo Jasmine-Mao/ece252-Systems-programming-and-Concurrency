@@ -31,6 +31,13 @@ struct thread_return
     int returnSuccess;  // returns a number; based on that number we know if the thread has succeeded or failed in its task
 };
 
+
+atomic_bool checkImg[50] = {false};
+
+atomic_int numFetched = 0;
+
+
+
 void *fetchImage(void *arg){    // currently just spits out what number the thread is; currently for debugging purposes
     /*INIT STUFF FOR CURL HANDLING*/
     struct thread_args *p_in = arg;
@@ -54,18 +61,28 @@ void *fetchImage(void *arg){    // currently just spits out what number the thre
     strcat(url, &img);  // append image number to end of url to get the full url
     printf("url: %s\n", url);
 
+    curl_easy_setopt(p_in->curl_handle, CURLOPT_URL, url);
 
     /*ACTUAL FETCHING STUFF*/
-    while(*p_in->intPtr < 50){
-        (*p_in->intPtr)++;
-        printf("%d, thread %d\n", *p_in->intPtr, p_in->threadNumber);
-    }
+    while(numFetched < 50){
+        /*FIRST GET THE IMAGE*/
+        // res = curl_easy_perform(p_in->curl_handle);
 
-    if(p_in->curl_handle){
-        curl_easy_setopt(p_in->curl_handle, CURLOPT_URL, url);
-        printf("curl handle for thread %d initialized\n", p_in->threadNumber);
-        res = curl_easy_perform(p_in->curl_handle);
+        /*CHECK HEADER FOR IMAGE NUMBER*/
 
+        /*SEE IF IMAGE NUMBER HAS NOT BEEN FETCHED*/
+
+        /*IF UNFETCHED, GET HERE*/
+
+        /*ADD TO BUFFER*/
+
+        /*CHECK OFF THIS IMAGE IN THE ARRAY*/
+
+        /*INCREMENT NUM FETCHED*/
+
+        numFetched++;
+        checkImg[p_in->threadNumber] = true;
+        printf("%d, thread %d\n", numFetched, p_in->threadNumber);
     }
 
     curl_easy_cleanup(p_in->curl_handle);
@@ -77,9 +94,6 @@ int main(int argc, char* argv[]){
     int c;
     int numThreads = 1; // default num of threads and images
     int imgNumber = 1;
-
-    atomic_bool checkImg[50] = {false};
-    atomic_int numFetched = 0;
 
     // option stuff
 
@@ -127,8 +141,8 @@ int main(int argc, char* argv[]){
         in_params[x].threadNumber = x;
         in_params[x].curl_handle = curl_handle[x];
         in_params[x].imageNumber = imgNumber;
-        in_params[x].boolPtr = checkImg;
-        in_params[x].intPtr = &numFetched;
+        /* in_params[x].boolPtr = checkImg;
+        in_params[x].intPtr = &numFetched; */
         pthread_create(&threads[x], NULL, fetchImage, &in_params[x]);
         // create [numThreads] threads; arg passed is the number assigned to each thread
     }
