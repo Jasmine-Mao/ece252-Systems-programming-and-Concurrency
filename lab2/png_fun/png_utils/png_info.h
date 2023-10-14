@@ -7,9 +7,6 @@
  */
 #pragma once
 
-/******************************************************************************
- * INCLUDE HEADER FILES
- *****************************************************************************/
 #include <stdio.h>
 
 /******************************************************************************
@@ -22,10 +19,8 @@
 #define CHUNK_CRC_SIZE  4   /* chunk CRC field size in bytes */
 #define DATA_IHDR_SIZE 13   /* IHDR chunk data field size */
 
-#define DATALESS_CHUNK_SIZE 12  /* dataless chunk size in bytes */
-#define PNG_WIDTH 400           /* width of PNGs on server (paster) */
-#define PNG_HEIGHT 300          /* height of PNGs on server (paster) */
-#define STRIP_HEIGHT 6          /* height of PNG strips on server (paster) */
+#define IEND_CHUNK_SIZE 12  /* ihdr chunk size in bytes */
+#define IHDR_CHUNK_SIZE 25  /* iend chunk size in bytes */
 
 /******************************************************************************
  * STRUCTURES and TYPEDEFS 
@@ -66,6 +61,6 @@ typedef struct ihdr_chunk {
 /* A simple PNG file format, three chunks only*/
 typedef struct simple_PNG {
     ihdr_chunk_p p_IHDR;
-    chunk_p p_IDAT;  /* only handles one IDAT chunk */  
+    chunk_p p_IDAT;
     chunk_p p_IEND;
 } *simple_PNG_p;

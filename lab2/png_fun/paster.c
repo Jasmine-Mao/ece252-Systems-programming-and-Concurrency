@@ -7,13 +7,22 @@
 #include <getopt.h>
 #include <curl/curl.h>
 #include <string.h>
-#include <stdatomic.h>
 #include <stdbool.h>
+#include "png_utils/cat_png.h"
 #include "paster.h"
 
 #define URL_1 "http://ece252-1.uwaterloo.ca:2520/image?img="
 #define URL_2 "http://ece252-2.uwaterloo.ca:2520/image?img="
 #define URL_3 "http://ece252-3.uwaterloo.ca:2520/image?img="
+
+/* GLOBAL VARIABLES */
+atomic_bool checkImg[50] = {false};
+atomic_int numFetched = 0;
+
+/* Using the additional global variables defined in cat_png.h:
+atomic_uchar idat_data[INFLATED_DATA_SIZE];
+atomic_int idat_compressed_length;
+*/
 
 struct thread_args
 {
@@ -30,12 +39,6 @@ struct thread_return
     int threadNumber;   // for debugging purposes only!!
     int returnSuccess;  // returns a number; based on that number we know if the thread has succeeded or failed in its task
 };
-
-
-atomic_bool checkImg[50] = {false};
-
-atomic_int numFetched = 0;
-
 
 
 void *fetchImage(void *arg){    // currently just spits out what number the thread is; currently for debugging purposes

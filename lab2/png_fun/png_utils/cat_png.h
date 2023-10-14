@@ -5,7 +5,19 @@
 
 #pragma once
 
-#include "png_utils/png_info.h"
+#include "png_info.h"
+#include <stdatomic.h>
+
+#define PNG_WIDTH 400       /* width of PNGs on server */
+#define PNG_HEIGHT 300      /* height of PNGs on server */
+#define STRIP_HEIGHT 6      /* height of PNG strips on server */
+#define INFLATED_DATA_SIZE (PNG_HEIGHT * (PNG_WIDTH * 4 + 1) )
+
+/* Global container to store inflated idat data */
+atomic_uchar idat_data[INFLATED_DATA_SIZE];
+
+/* Global variable to track compressed idat data length */
+atomic_int idat_compressed_length;
 
 /** @brief Write PNG data to all.png
  *
@@ -13,7 +25,7 @@
  *  @param idat_data_size The size of the PNG's IDAT data.
  *  @return 0 if success, -1 otherwise
  */
-//int write_png(struct simple_PNG *png_to_write, size_t idat_data_size);
+int write_png(struct simple_PNG *png_to_write, size_t idat_data_size);
 
 /** @brief Concatenate PNG IDAT data
  *
@@ -22,15 +34,21 @@
  *  @param current_idat_end Position of last written IDAT data within idat.
  *  @return updated current_idat_end value
  */
-//size_t concatenate_idat(const char *fpath, U8 *idat, size_t current_idat_end);
+size_t concatenate_idat(const char *fpath, U8 *idat, size_t current_idat_end);
 
 /** @brief Perform PNG concatenation
- *  @param png_count Number of pngs to concatenate
- *  @param argv Arguments forwarded from main
  *  @return 0 if success, -1 otherwise
  */
-//int concatenate_pngs(int png_count, char* argv[]);
+int concatenate_png();
 
+/** @brief Create PNG IHDR chunk for a 400 x 300 image.
+ *
+ *  @param dest Destination of new IHDR chunk
+ */
 void create_ihdr_chunk(ihdr_chunk_p dest);
-void create_iend_chunk(chunk_p dest);
 
+/** @brief Create PNG IEND chunk
+ *
+ *  @param dest Destination of new IEND chunk
+ */
+void create_iend_chunk(chunk_p dest);
