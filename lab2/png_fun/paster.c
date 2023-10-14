@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <unistd.h>
-#include <sys/types.h>
 #include <ctype.h> 
 #include <getopt.h>
 #include <curl/curl.h>
@@ -14,6 +13,7 @@
 #define URL_1 "http://ece252-1.uwaterloo.ca:2520/image?img="
 #define URL_2 "http://ece252-2.uwaterloo.ca:2520/image?img="
 #define URL_3 "http://ece252-3.uwaterloo.ca:2520/image?img="
+#define ECE252_HEADER "X-Ece252-Fragment: "
 
 /* GLOBAL VARIABLES */
 atomic_bool checkImg[50] = {false};
@@ -24,24 +24,36 @@ atomic_uchar idat_data[INFLATED_DATA_SIZE];
 atomic_int idat_compressed_length;
 */
 
+/*STRUCT DECLERATIONS FOR THREADING STUFF*/
 struct thread_args
 {
     // variables here
-    int threadNumber;   // for debugging purposes only!!
+    int thread_number;
     CURL *curl_handle;
-    int imageNumber;
-    _Atomic bool *boolPtr;  // pointer to 
-    _Atomic int *intPtr;
+    int image_number;
 };
 
 struct thread_return
 {
-    int threadNumber;   // for debugging purposes only!!
-    int returnSuccess;  // returns a number; based on that number we know if the thread has succeeded or failed in its task
+    int thread_number;   // for debugging purposes only!!
+    int return_success;  // returns a number; based on that number we know if the thread has succeeded or failed in its task
 };
 
+/*FROM STARTER; WILL BE MODIFIED LATER*/
+typedef struct recv_buf2 {
+    char *buf;       /* memory to hold a copy of received data */
+    size_t size;     /* size of valid data in buf in bytes*/
+    size_t max_size; /* max capacity of buf in bytes*/
+    int seq;         /* >=0 sequence number extracted from http header */
+                     /* <0 indicates an invalid seq number */
+} RECV_BUF;
 
-void *fetchImage(void *arg){    // currently just spits out what number the thread is; currently for debugging purposes
+/*GLOBAL VARIABLES; WILL BE INCLUDED IN THE HEADER FILE LATER*/
+atomic_bool check_img[50] = {false};    // false if image has not been fetched, become true if image is fetched
+atomic_int num_fetched = 0;     // counter for the number of unique images we have fetched. should eventually reach 50
+
+/*THREAD SAFE FUNCTION TO BE CALLED BY ALL THREADS*/
+void *fetch_image(void *arg){
     /*INIT STUFF FOR CURL HANDLING*/
     struct thread_args *p_in = arg;
     struct thread_return *p_out = malloc(sizeof(struct thread_return));
@@ -51,7 +63,7 @@ void *fetchImage(void *arg){    // currently just spits out what number the thre
     char url[256];
 
     /*SEND THREAD TO APPROPRIATE SERVER*/
-    int server = p_in->threadNumber % 3;
+    int server = p_in->thread_number % 3;
     if(server == 1)
         strcpy(url, URL_1);
     else if(server == 2)
@@ -60,14 +72,15 @@ void *fetchImage(void *arg){    // currently just spits out what number the thre
         strcpy(url, URL_3);
 
     /*FULLY CONSTRUCT URL WITH THE IMAGE NUMBER*/
-    char img = p_in->imageNumber + '0';
-    strcat(url, &img);  // append image number to end of url to get the full url
+    char img = p_in->image_number + '0';
+    strcat(url, &img);
     printf("url: %s\n", url);
 
+    /*INITIALIZE CURL OPTION; MUST LATER BE CONVERTED TO ACTUALLY TAKING DATA*/
     curl_easy_setopt(p_in->curl_handle, CURLOPT_URL, url);
 
     /*ACTUAL FETCHING STUFF*/
-    while(numFetched < 50){
+    while(num_fetched < 50){
         /*FIRST GET THE IMAGE*/
         // res = curl_easy_perform(p_in->curl_handle);
 
@@ -83,77 +96,68 @@ void *fetchImage(void *arg){    // currently just spits out what number the thre
 
         /*INCREMENT NUM FETCHED*/
 
-        numFetched++;
-        checkImg[p_in->threadNumber] = true;
-        printf("%d, thread %d\n", numFetched, p_in->threadNumber);
+        num_fetched++;
+        check_img[p_in->thread_number] = true;
+        printf("%d, thread %d\n", num_fetched, p_in->thread_number);
     }
-
+    /*CLEAN UP ENVIRONMENT AND EVERYTHING ELSE*/
     curl_easy_cleanup(p_in->curl_handle);
-    p_out->threadNumber = p_in->threadNumber;
+    p_out->thread_number = p_in->thread_number;
     return((void*)p_out);
 }
 
 int main(int argc, char* argv[]){
     int c;
-    int numThreads = 1; // default num of threads and images
-    int imgNumber = 1;
+    int num_threads = 1; // default num of threads and images
+    int img_number = 1;
 
-    // option stuff
-
-    // default to 1 thread, image 1
+    /*OPTION STUFF*/
     while((c = getopt(argc, argv, "t:n:")) != -1){
           switch(c){
             case't':
-            numThreads = strtoul(optarg, NULL, 10);
-            if(numThreads <= 0){
+            num_threads = strtoul(optarg, NULL, 10);
+            if(num_threads <= 0){
                 printf("please enter valid thread number\n");
                 return -1;
             }
-            printf("arg passed for threads: %d\n", numThreads);
+            printf("arg passed for threads: %d\n", num_threads);
             break;
             case 'n':
-            imgNumber = strtoul(optarg, NULL, 10);
-            if(imgNumber <= 0 || imgNumber > 3){
+            img_number = strtoul(optarg, NULL, 10);
+            if(img_number <= 0 || img_number > 3){
                 printf("please enter valid image number\n");
                 return -1;
             }
-            printf("arg passed for image: %d\n", imgNumber);
+            printf("arg passed for image: %d\n", img_number);
             break;
             default:
-                // if nothing was passed, we just use the defauly value
+            // if nothing was passed, we just use the defauly value
             break;
         }
     }
 
-    // for debugging purposes; will be removed later
-    printf("number of threads: %d\n", numThreads);
-    printf("image number: %d\n", imgNumber);
+    /*INIT THREAD STUFF*/
+    pthread_t threads[num_threads];
 
-    // init the threads
-    pthread_t threads[numThreads];
+    struct thread_return *results[num_threads];
+    struct thread_args in_params[num_threads];
 
-    CURL *curl_handle[numThreads];
+    /*SET CURL ENVIRONMENT AND INIT UNIQUE CURL FOR ALL THREADS*/
+    curl_global_init(CURL_GLOBAL_DEFAULT);
+    CURL *curl_handle[num_threads];
 
-    // init return value and input arguments
-    struct thread_return *results[numThreads];
-    struct thread_args in_params[numThreads];
-
-    curl_global_init(CURL_GLOBAL_DEFAULT);  // init curl environment; must be called before any curl operations can work
-
-    for(int x = 0; x < numThreads; x++){
-        in_params[x].threadNumber = x;
+    /*CREATE THREADS; NUMBER OF THREADS CREATED SPECIFIED BY USER*/
+    for(int x = 0; x < num_threads; x++){
+        in_params[x].thread_number = x;
         in_params[x].curl_handle = curl_handle[x];
-        in_params[x].imageNumber = imgNumber;
-        /* in_params[x].boolPtr = checkImg;
-        in_params[x].intPtr = &numFetched; */
-        pthread_create(&threads[x], NULL, fetchImage, &in_params[x]);
-        // create [numThreads] threads; arg passed is the number assigned to each thread
+        in_params[x].image_number = img_number;
+        pthread_create(&threads[x], NULL, fetch_image, &in_params[x]);
     }
 
-    for(int i = 0; i < numThreads; i++){
+    /*JOIN ALL THREADS BACK TO MAIN*/
+    for(int i = 0; i < num_threads; i++){
         pthread_join(threads[i], NULL);
         printf("thread %d joined\n", i);
-        // join all threads
     }
     printf("all threads joined\n");
 
