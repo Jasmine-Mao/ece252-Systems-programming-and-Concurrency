@@ -19,9 +19,8 @@
 atomic_bool checkImg[50] = {false};
 atomic_int numFetched = 0;
 
-/* Using the additional global variables defined in cat_png.h:
+/* Using the additional global variable defined in cat_png.h:
 atomic_uchar idat_data[INFLATED_DATA_SIZE];
-atomic_int idat_compressed_length;
 */
 
 /*STRUCT DECLERATIONS FOR THREADING STUFF*/

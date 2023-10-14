@@ -16,9 +16,6 @@
 /* Global container to store inflated idat data */
 atomic_uchar idat_data[INFLATED_DATA_SIZE];
 
-/* Global variable to track compressed idat data length */
-atomic_int idat_compressed_length;
-
 /** @brief Write PNG data to all.png
  *
  *  @param png_to_write Source of png data to write.
