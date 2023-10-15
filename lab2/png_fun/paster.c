@@ -79,7 +79,7 @@ void *fetch_image(void *arg){
     curl_easy_setopt(p_in->curl_handle, CURLOPT_URL, url);
 
     /*ACTUAL FETCHING STUFF*/
-    while(num_fetched < 50){
+    while(num_fetched < 500){
         /*FIRST GET THE IMAGE*/
         // res = curl_easy_perform(p_in->curl_handle);
 
@@ -146,17 +146,22 @@ int main(int argc, char* argv[]){
     CURL *curl_handle[num_threads];
 
     /*CREATE THREADS; NUMBER OF THREADS CREATED SPECIFIED BY USER*/
+    int return_success[num_threads];
     for(int x = 0; x < num_threads; x++){
         in_params[x].thread_number = x;
         in_params[x].curl_handle = curl_handle[x];
         in_params[x].image_number = img_number;
-        pthread_create(&threads[x], NULL, fetch_image, &in_params[x]);
+        return_success[x] = pthread_create(&threads[x], NULL, fetch_image, &in_params[x]);
     }
 
     /*JOIN ALL THREADS BACK TO MAIN*/
     for(int i = 0; i < num_threads; i++){
-        pthread_join(threads[i], NULL);
-        printf("thread %d joined\n", i);
+        /*CHECK IF THREAD CREATED WAS SUCCESSFUL. IF NOT, DO NOT ATTEMPT TO JOIN THE THREAD -- SEG FAULT*/
+        if(return_success[i] == 0){
+            printf("thread %d created successfully\n", i);
+            pthread_join(threads[i], NULL);
+            printf("thread %d joined\n", i);
+        }
     }
     printf("all threads joined\n");
 
