@@ -249,10 +249,10 @@ int main(int argc, char* argv[]){
         }
     }
     printf("all threads joined\n");
-    /* int result = concatenate_png();
+    int result = concatenate_png();
     if (result != 0){
         printf("catpng failure \n");
-    } */
+    }
 
     curl_global_cleanup();  // clean up curl environment before return
     return 0;

@@ -8,13 +8,12 @@
 #include "cat_png.h"
 
 void create_ihdr_chunk(struct ihdr_chunk *ihdr_buf){
-    ihdr_chunk_p ihdr_chunk = malloc(IHDR_CHUNK_SIZE);
     data_IHDR_p data = malloc(DATA_IHDR_SIZE);
 
     // Set length and type fields
-    ihdr_chunk->length = (U32)htonl(DATA_IHDR_SIZE);
+    ihdr_buf->length = (U32)htonl(DATA_IHDR_SIZE);
     const char* ihdr_type = "IHDR";
-    memcpy(ihdr_chunk->type, ihdr_type, 4);
+    memcpy(ihdr_buf->type, ihdr_type, 4);
 
     // Set data fields
     data->width = htonl(PNG_WIDTH);
@@ -24,32 +23,28 @@ void create_ihdr_chunk(struct ihdr_chunk *ihdr_buf){
     data->compression = 0;
     data->filter = 0;  
     data->interlace = 0;
-    ihdr_chunk->p_data = data;
+    ihdr_buf->p_data = data;
 
     // Calculate and set CRC
     U8 ihdr_crc_buffer[DATA_IHDR_SIZE + 4];
     memcpy(ihdr_crc_buffer, "IHDR", 4);
-    memcpy(ihdr_crc_buffer + 4, ihdr_chunk->p_data, DATA_IHDR_SIZE);
+    memcpy(ihdr_crc_buffer + 4, ihdr_buf->p_data, DATA_IHDR_SIZE);
     U32 ihdr_crc = crc(ihdr_crc_buffer, DATA_IHDR_SIZE + 4);
-    ihdr_chunk->crc = htonl(ihdr_crc);
+    ihdr_buf->crc = htonl(ihdr_crc);
 
-    ihdr_buf = ihdr_chunk;
 }
 
 void create_iend_chunk(struct chunk * iend_buf){
-    chunk_p iend_chunk = malloc(sizeof(struct chunk));
-    iend_chunk->p_data = NULL;
+    iend_buf->p_data = NULL;
 
     // Set length and type fields
-    iend_chunk->length = 0;
+    iend_buf->length = 0;
     const char* iend_type = "IEND";
-    memcpy(iend_chunk->type, iend_type, 4);
+    memcpy(iend_buf->type, iend_type, 4);
 
     // Calculate and set CRC
-    U32 iend_crc = crc(iend_chunk->type, 4);
-    iend_chunk->crc = htonl(iend_crc);
-
-    iend_buf = iend_chunk;
+    U32 iend_crc = crc(iend_buf->type, 4);
+    iend_buf->crc = htonl(iend_crc);
 }
 
 int write_png(struct simple_PNG *png_to_write, size_t idat_data_size) {
@@ -98,8 +93,8 @@ int write_png(struct simple_PNG *png_to_write, size_t idat_data_size) {
 
 int concatenate_png(){
     simple_PNG_p png_all = malloc(sizeof(struct simple_PNG));
-    png_all->p_IHDR = NULL;
-    png_all->p_IEND = NULL;
+    png_all->p_IHDR = malloc(IHDR_CHUNK_SIZE);
+    png_all->p_IEND = malloc(sizeof(struct chunk));
     // IHDR and IEND chunks are populated with constants
     create_ihdr_chunk(png_all->p_IHDR);
     create_iend_chunk(png_all->p_IEND);
