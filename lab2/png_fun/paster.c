@@ -126,16 +126,13 @@ void *fetch_image(void *arg){
     /*ACTUAL FETCHING STUFF*/
     while(num_fetched < 50){
         DATA_BUF strip_data;
-<<<<<<< HEAD
 
         data_buf_init(&strip_data, 10000);
         /*FIX LATER*/
-=======
         strip_data.size = 0;
         strip_data.seq = -1;
         strip_data.write_success = -1;
 
->>>>>>> 58a873570cd360078a61fd089f2c89cf5869aec2
         // Define write callback
         curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, idat_write_callback);
         curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, (void *)&strip_data);
@@ -161,13 +158,10 @@ void *fetch_image(void *arg){
             check_img[strip_data.seq] = true;
             num_fetched++;
         }
-<<<<<<< HEAD
          else if(res != CURLE_OK){
             printf("curl failed\n");
-=======
         else if(res != CURLE_OK){
             printf("Curl failed for thread number %d.\n", p_in->thread_number);
->>>>>>> 58a873570cd360078a61fd089f2c89cf5869aec2
         }
         else {
             printf("Found repeated segment: %d for thread number %d\n", strip_data.seq, p_in->thread_number);
