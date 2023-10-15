@@ -7,7 +7,9 @@
 #include <curl/curl.h>
 #include <string.h>
 #include <stdbool.h>
+#include <arpa/inet.h>
 #include "png_utils/cat_png.h"
+#include "png_utils/zutil.h"
 #include "paster.h"
 
 #define URL_1 "http://ece252-1.uwaterloo.ca:2520/image?img="
@@ -28,7 +30,6 @@ struct thread_args
 {
     // variables here
     int thread_number;
-    CURL *curl_handle;
     int image_number;
 };
 
@@ -39,17 +40,41 @@ struct thread_return
 };
 
 /*FROM STARTER; WILL BE MODIFIED LATER*/
-typedef struct recv_buf2 {
-    char *buf;       /* memory to hold a copy of received data */
+typedef struct data_buf {
+    U8 *buf;       /* memory to hold a copy of received IDAT data */
     size_t size;     /* size of valid data in buf in bytes*/
-    size_t max_size; /* max capacity of buf in bytes*/
     int seq;         /* >=0 sequence number extracted from http header */
                      /* <0 indicates an invalid seq number */
-} RECV_BUF;
+} DATA_BUF;
 
 /*GLOBAL VARIABLES; WILL BE INCLUDED IN THE HEADER FILE LATER*/
 atomic_bool check_img[50] = {false};    // false if image has not been fetched, become true if image is fetched
 atomic_int num_fetched = 0;     // counter for the number of unique images we have fetched. should eventually reach 50
+
+size_t idat_write_callback(char * recv, size_t size, size_t nmemb, void *userdata){
+    // total size of received png data
+    size_t real_size = size * nmemb;
+
+    // type cast to recv_buf struct
+    DATA_BUF * strip_data = (DATA_BUF *) userdata;
+
+    // early return if fragment is non-unqie
+    if (check_img[strip_data->seq]){
+        return real_size;
+    }
+
+    // copy length
+    int read_index = PNG_SIG_SIZE + IHDR_CHUNK_SIZE;
+    memcpy(&(strip_data->size), recv + read_index, CHUNK_LEN_SIZE);
+    strip_data->size = ntohl(strip_data->size);
+
+    // copy IDAT data
+    read_index += CHUNK_LEN_SIZE + CHUNK_TYPE_SIZE;
+    strip_data->buf = malloc(strip_data->size);
+    memcpy(strip_data->buf, recv + read_index, strip_data->size);
+
+    return real_size;
+}
 
 /*THREAD SAFE FUNCTION TO BE CALLED BY ALL THREADS*/
 void *fetch_image(void *arg){
@@ -57,7 +82,7 @@ void *fetch_image(void *arg){
     struct thread_args *p_in = arg;
     struct thread_return *p_out = malloc(sizeof(struct thread_return));
 
-    p_in->curl_handle = curl_easy_init();
+    CURL *curl_handle = curl_easy_init();
     CURLcode res;
     char url[256];
 
@@ -76,31 +101,40 @@ void *fetch_image(void *arg){
     printf("url: %s\n", url);
 
     /*INITIALIZE CURL OPTION; MUST LATER BE CONVERTED TO ACTUALLY TAKING DATA*/
-    curl_easy_setopt(p_in->curl_handle, CURLOPT_URL, url);
+    curl_easy_setopt(curl_handle, CURLOPT_URL, url);
 
     /*ACTUAL FETCHING STUFF*/
     while(num_fetched < 50){
-        /*FIRST GET THE IMAGE*/
-        // res = curl_easy_perform(p_in->curl_handle);
+        DATA_BUF strip_data;
+        strip_data.seq = -1;
 
-        /*CHECK HEADER FOR IMAGE NUMBER*/
+        // Define write callback
+        curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, idat_write_callback);
+        curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, (void *)&strip_data);
 
-        /*SEE IF IMAGE NUMBER HAS NOT BEEN FETCHED*/
+        // Define header callback
+        // TODO: @iman
+        
+        // Fetch data from server
+        res = curl_easy_perform(curl_handle);
+        // TODO check res for CURLE_OK, handle error if not ok. may wanna nest rest of logic in another if block
 
-        /*IF UNFETCHED, GET HERE*/
+        if (!check_img[strip_data.seq]){
+            // Inflate and store idat data
+            int store_index = strip_data.seq * STRIP_HEIGHT * (PNG_WIDTH * 4 + 1);
+            U64 inf_size;
+            mem_inf(idat_data + store_index, &inf_size, strip_data.buf, strip_data.size);
 
-        /*ADD TO BUFFER*/
+            // sanity check (later)
+            printf("Expected size of inflated data: %d, Got: %ld", STRIP_HEIGHT * (PNG_WIDTH * 4 + 1), inf_size);
 
-        /*CHECK OFF THIS IMAGE IN THE ARRAY*/
-
-        /*INCREMENT NUM FETCHED*/
-
-        num_fetched++;
-        check_img[p_in->thread_number] = true;
-        printf("%d, thread %d\n", num_fetched, p_in->thread_number);
+            check_img[strip_data.seq] = true;
+            num_fetched++;
+        }
     }
+
     /*CLEAN UP ENVIRONMENT AND EVERYTHING ELSE*/
-    curl_easy_cleanup(p_in->curl_handle);
+    curl_easy_cleanup(curl_handle);
     p_out->thread_number = p_in->thread_number;
     return((void*)p_out);
 }
@@ -143,19 +177,17 @@ int main(int argc, char* argv[]){
 
     /*SET CURL ENVIRONMENT AND INIT UNIQUE CURL FOR ALL THREADS*/
     curl_global_init(CURL_GLOBAL_DEFAULT);
-    CURL *curl_handle[num_threads];
 
     /*CREATE THREADS; NUMBER OF THREADS CREATED SPECIFIED BY USER*/
     for(int x = 0; x < num_threads; x++){
         in_params[x].thread_number = x;
-        in_params[x].curl_handle = curl_handle[x];
         in_params[x].image_number = img_number;
         pthread_create(&threads[x], NULL, fetch_image, &in_params[x]);
     }
 
     /*JOIN ALL THREADS BACK TO MAIN*/
     for(int i = 0; i < num_threads; i++){
-        pthread_join(threads[i], NULL);
+        pthread_join(threads[i], (void **)&(results[i]));
         printf("thread %d joined\n", i);
     }
     printf("all threads joined\n");
