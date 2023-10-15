@@ -97,7 +97,7 @@ size_t header_callback(char *p_recv, size_t size, size_t nmemb, void *userdata)
 void *fetch_image(void *arg){
     /*INIT STUFF FOR CURL HANDLING*/
     struct thread_args *p_in = arg;
-    struct thread_return *p_out = malloc(sizeof(struct thread_return));
+    //struct thread_return *p_out = malloc(sizeof(struct thread_return));
 
     CURL *curl_handle = curl_easy_init();
     CURLcode res;
@@ -127,7 +127,7 @@ void *fetch_image(void *arg){
     while(num_fetched < 50){
         DATA_BUF strip_data;
 
-        data_buf_init(&strip_data, 10000);
+        // data_buf_init(&strip_data, 10000);
         /*FIX LATER*/
         strip_data.size = 0;
         strip_data.seq = -1;
@@ -158,13 +158,11 @@ void *fetch_image(void *arg){
             check_img[strip_data.seq] = true;
             num_fetched++;
         }
-         else if(res != CURLE_OK){
-            printf("curl failed\n");
         else if(res != CURLE_OK){
-            printf("Curl failed for thread number %d.\n", p_in->thread_number);
+            //printf("Curl failed for thread number %d.\n", p_in->thread_number);
         }
         else {
-            printf("Found repeated segment: %d for thread number %d\n", strip_data.seq, p_in->thread_number);
+            //printf("Found repeated segment: %d for thread number %d\n", strip_data.seq, p_in->thread_number);
         }
 
         if (strip_data.write_success == 0){
@@ -174,8 +172,9 @@ void *fetch_image(void *arg){
 
     /*CLEAN UP ENVIRONMENT AND EVERYTHING ELSE*/
     curl_easy_cleanup(curl_handle);
-    p_out->thread_number = p_in->thread_number;
-    return((void*)p_out);
+    /* p_out->thread_number = p_in->thread_number;
+    free(p_out); */
+    return;
 }
 
 int main(int argc, char* argv[]){
