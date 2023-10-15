@@ -8,12 +8,12 @@
 #include "png_info.h"
 #include "cat_png.h"
 
-void create_ihdr_chunk(ihdr_chunk_p dest){
+void create_ihdr_chunk(ihdr_chunk_p ihdr_buf){
     ihdr_chunk_p ihdr_chunk = malloc(IHDR_CHUNK_SIZE);
     data_IHDR_p data = malloc(DATA_IHDR_SIZE);
 
     // Set length and type fields
-    ihdr_chunk->length = htonl(DATA_IHDR_SIZE);
+    ihdr_chunk->length = (U32)htonl(DATA_IHDR_SIZE);
     const char* ihdr_type = "IHDR";
     memcpy(ihdr_chunk->type, ihdr_type, 4);
 
@@ -34,10 +34,10 @@ void create_ihdr_chunk(ihdr_chunk_p dest){
     U32 ihdr_crc = crc(ihdr_crc_buffer, DATA_IHDR_SIZE + 4);
     ihdr_chunk->crc = htonl(ihdr_crc);
 
-    dest = ihdr_chunk;
+    ihdr_buf = ihdr_chunk;
 }
 
-void create_iend_chunk(chunk_p dest){
+void create_iend_chunk(chunk_p iend_buf){
     chunk_p iend_chunk = malloc(sizeof(struct chunk));
     iend_chunk->p_data = NULL;
 
@@ -50,7 +50,7 @@ void create_iend_chunk(chunk_p dest){
     U32 iend_crc = crc(iend_chunk->type, 4);
     iend_chunk->crc = htonl(iend_crc);
 
-    dest = iend_chunk;
+    iend_buf = iend_chunk;
 }
 
 int write_png(struct simple_PNG *png_to_write, size_t idat_data_size) {
@@ -100,9 +100,15 @@ int write_png(struct simple_PNG *png_to_write, size_t idat_data_size) {
 int concatenate_png(){
     simple_PNG_p png_all = malloc(sizeof(struct simple_PNG));
 
+    ihdr_chunk_p ihdr_buffer;
+    chunk_p iend_buffer;
+
     // IHDR and IEND chunks are populated with constants
-    create_ihdr_chunk(png_all->p_IHDR);
-    create_iend_chunk(png_all->p_IEND);
+    create_ihdr_chunk(ihdr_buffer);
+    create_iend_chunk(iend_buffer);
+
+    png_all->p_IHDR = ihdr_buffer;
+    png_all->p_IEND = iend_buffer;
 
     // IDAT Compression
     U8 *def_buf = malloc(INFLATED_DATA_SIZE);
