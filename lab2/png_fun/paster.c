@@ -18,8 +18,8 @@
 #define ECE252_HEADER "X-Ece252-Fragment: "
 
 /* GLOBAL VARIABLES */
-atomic_bool checkImg[50] = {false};
-atomic_int numFetched = 0;
+atomic_bool check_img[50] = {false};    // false if image has not been fetched, true if image is already stored
+atomic_int num_fetched = 0;             // counter for the number of unique images we have fetched, limit is 50
 
 /* Using the additional global variable defined in cat_png.h:
 atomic_uchar idat_data[INFLATED_DATA_SIZE];
@@ -46,10 +46,6 @@ typedef struct data_buf {
     int seq;         /* >=0 sequence number extracted from http header */
                      /* <0 indicates an invalid seq number */
 } DATA_BUF;
-
-/*GLOBAL VARIABLES; WILL BE INCLUDED IN THE HEADER FILE LATER*/
-atomic_bool check_img[50] = {false};    // false if image has not been fetched, become true if image is fetched
-atomic_int num_fetched = 0;     // counter for the number of unique images we have fetched. should eventually reach 50
 
 size_t idat_write_callback(char * recv, size_t size, size_t nmemb, void *userdata){
     // total size of received png data
