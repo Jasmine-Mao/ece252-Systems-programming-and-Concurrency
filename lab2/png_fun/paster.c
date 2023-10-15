@@ -144,8 +144,9 @@ void *fetch_image(void *arg){
             U64 inf_size;
             mem_inf(idat_data + store_index, &inf_size, strip_data.buf, strip_data.size);
 
-            // sanity check (later)
-            printf("Expected size of inflated data: %d, Got: %ld", STRIP_HEIGHT * (PNG_WIDTH * 4 + 1), inf_size);
+            #ifdef DEBUG_MODE
+            printf("Expected size of inflated data: %d, Got: %ld\n", STRIP_HEIGHT * (PNG_WIDTH * 4 + 1), inf_size);
+            #endif
 
             check_img[strip_data.seq] = true;
             num_fetched++;

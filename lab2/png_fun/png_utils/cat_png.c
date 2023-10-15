@@ -37,7 +37,7 @@ void create_ihdr_chunk(ihdr_chunk_p dest){
 }
 
 void create_iend_chunk(chunk_p dest){
-    chunk_p iend_chunk = malloc(IEND_CHUNK_SIZE);
+    chunk_p iend_chunk = malloc(sizeof(struct chunk));
     iend_chunk->p_data = NULL;
 
     // Set length and type fields
@@ -69,7 +69,7 @@ int write_png(struct simple_PNG *png_to_write, size_t idat_data_size) {
     // Copy header IHDR chunk
     memcpy(write_buffer, png_header, sizeof(png_header));
     memcpy(write_buffer + 8, &(png_to_write->p_IHDR->length), CHUNK_LEN_SIZE);
-    memcpy(write_buffer + 12, png_to_write->p_IHDR->type, CHUNK_TYPE_SIZE);
+    memcpy(write_buffer + 12, &png_to_write->p_IHDR->type, CHUNK_TYPE_SIZE);
     memcpy(write_buffer + 16, png_to_write->p_IHDR->p_data, DATA_IHDR_SIZE);
     memcpy(write_buffer + 29, &(png_to_write->p_IHDR->crc), CHUNK_CRC_SIZE);
 
