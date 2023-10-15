@@ -168,7 +168,7 @@ void *fetch_image(void *arg){
         res = curl_easy_perform(curl_handle);
         // TODO check res for CURLE_OK, handle error if not ok. may wanna nest rest of logic in another if block
 
-        if (!check_img[strip_data.seq]){ /*checks if image segment was fetched already*/
+        if ((res == CURLE_OK) && (!check_img[strip_data.seq])){ /*checks if image segment was fetched already*/
         
             // Inflate and store idat data
             int store_index = strip_data.seq * STRIP_HEIGHT * (PNG_WIDTH * 4 + 1);
@@ -179,7 +179,11 @@ void *fetch_image(void *arg){
             // STORE DATA HERE
             check_img[strip_data.seq] = true;
             num_fetched++;
-        } else {
+        }
+        else if(res != CURLE_OK){
+            printf("curl failed\n");
+        }
+        else {
             printf("Found repeated segment: %d\n", strip_data.seq);
         }
 
