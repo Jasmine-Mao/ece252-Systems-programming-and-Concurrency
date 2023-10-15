@@ -44,37 +44,13 @@ struct thread_return
 
 /*FROM STARTER; WILL BE MODIFIED LATER*/
 typedef struct data_buf {
-    U8 *buf;       /* memory to hold a copy of received IDAT data */
-    size_t size;     /* size of valid data in buf in bytes*/
-    int seq;         /* >=0 sequence number extracted from http header */
-                     /* <0 indicates an invalid seq number */
+    U8 *buf;            /* memory to hold a copy of received IDAT data */
+    size_t size;        /* size of valid data in buf in bytes*/
+    int write_success;  /* 0 if success, -1 if failure */
+    int seq;            /* >=0 sequence number extracted from http header */
+                        /* <0 indicates an invalid seq number */
 } DATA_BUF;
 
-int data_buf_init(DATA_BUF *ptr, size_t max_size){
-    void *p = NULL;
-
-    if(ptr == NULL){
-        return 1;
-    }
-    p = malloc(max_size);
-    if (p == NULL) {
-	    return 2;
-    }
-
-    ptr->buf = p;
-    ptr->size = 0;
-    ptr->seq = -1;
-    return 0;
-}
-
-int data_buf_cleanup(DATA_BUF *ptr) {
-    if (ptr == NULL) {
-        return 1;
-    }
-
-    free(ptr->buf);
-    return 0;
-}
 
 size_t idat_write_callback(char * recv, size_t size, size_t nmemb, void *userdata){
     // total size of received png data
@@ -97,6 +73,8 @@ size_t idat_write_callback(char * recv, size_t size, size_t nmemb, void *userdat
     read_index += CHUNK_LEN_SIZE + CHUNK_TYPE_SIZE;
     strip_data->buf = malloc(strip_data->size);
     memcpy(strip_data->buf, recv + read_index, strip_data->size);
+
+    strip_data->write_success = 0;
 
     return real_size;
 }
@@ -148,11 +126,9 @@ void *fetch_image(void *arg){
     /*ACTUAL FETCHING STUFF*/
     while(num_fetched < 50){
         DATA_BUF strip_data;
-
-        data_buf_init(&strip_data, 10000);
-        /*FIX LATER*/
-        
-        // strip_data.seq = -1;
+        strip_data.size = 0;
+        strip_data.seq = -1;
+        strip_data.write_success = -1;
 
         // Define write callback
         curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, idat_write_callback);
@@ -166,28 +142,29 @@ void *fetch_image(void *arg){
 
         // Fetch data from server
         res = curl_easy_perform(curl_handle);
-        // TODO check res for CURLE_OK, handle error if not ok. may wanna nest rest of logic in another if block
 
-        if ((res == CURLE_OK) && (!check_img[strip_data.seq])){ /*checks if image segment was fetched already*/
-        
+        if ((res == CURLE_OK) && (!check_img[strip_data.seq]) && (strip_data.write_success == 0)){ /*checks if image segment was fetched already*/
             // Inflate and store idat data
             int store_index = strip_data.seq * STRIP_HEIGHT * (PNG_WIDTH * 4 + 1);
             U64 inf_size;
             mem_inf(idat_data + store_index, &inf_size, strip_data.buf, strip_data.size);
 
-            printf("Found unique segment: %d\n", strip_data.seq);
+            printf("Found unique segment: %d for thread number %d\n", strip_data.seq, p_in->thread_number);
+
             // STORE DATA HERE
             check_img[strip_data.seq] = true;
             num_fetched++;
         }
         else if(res != CURLE_OK){
-            printf("curl failed\n");
+            printf("Curl failed for thread number %d.\n", p_in->thread_number);
         }
         else {
-            printf("Found repeated segment: %d\n", strip_data.seq);
+            printf("Found repeated segment: %d for thread number %d\n", strip_data.seq, p_in->thread_number);
         }
 
-        data_buf_cleanup(&strip_data);
+        if (strip_data.write_success == 0){
+            free(strip_data.buf);
+        }
     }
 
     /*CLEAN UP ENVIRONMENT AND EVERYTHING ELSE*/
