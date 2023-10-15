@@ -140,7 +140,7 @@ void *fetch_image(void *arg){
     /*FULLY CONSTRUCT URL WITH THE IMAGE NUMBER*/
     char img = p_in->image_number + '0'; 
     strcat(url, &img);
-    printf("url: %s\n", url);
+    // printf("url: %s\n", url);
 
     /*INITIALIZE CURL OPTION; MUST LATER BE CONVERTED TO ACTUALLY TAKING DATA*/
     curl_easy_setopt(curl_handle, CURLOPT_URL, url);
@@ -151,9 +151,6 @@ void *fetch_image(void *arg){
 
         data_buf_init(&strip_data, 10000);
         /*FIX LATER*/
-        
-        // strip_data.seq = -1;
-
         // Define write callback
         curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, idat_write_callback);
         curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, (void *)&strip_data);
@@ -180,7 +177,7 @@ void *fetch_image(void *arg){
             check_img[strip_data.seq] = true;
             num_fetched++;
         }
-        else if(res != CURLE_OK){
+         else if(res != CURLE_OK){
             printf("curl failed\n");
         }
         else {
@@ -240,19 +237,24 @@ int main(int argc, char* argv[]){
     for(int x = 0; x < num_threads; x++){
         in_params[x].thread_number = x;
         in_params[x].image_number = img_number;
-        return_success[x] = pthread_create(&threads[x], NULL, fetch_image, &in_params[x]);
+        do{
+            return_success[x] = pthread_create(&threads[x], NULL, fetch_image, &in_params[x]);
+            printf("trying thread %d\n", x);
+        }
+        while(return_success[x] != 0);
+        printf("thread %d succeeded\n", x);
     }
 
     /*JOIN ALL THREADS BACK TO MAIN*/
     for(int i = 0; i < num_threads; i++){
         /*CHECK IF THREAD CREATED WAS SUCCESSFUL. IF NOT, DO NOT ATTEMPT TO JOIN THE THREAD -- SEG FAULT*/
         if(return_success[i] == 0){
-            printf("thread %d created successfully\n", i);
+            // printf("thread %d created successfully\n", i);
             pthread_join(threads[i], (void **)&(results[i]));
-            printf("thread %d joined\n", i);
+            // printf("thread %d joined\n", i);
         }
     }
-    printf("all threads joined\n");
+    // printf("all threads joined\n");
     int result = concatenate_png();
     if (result != 0){
         printf("catpng failure \n");
