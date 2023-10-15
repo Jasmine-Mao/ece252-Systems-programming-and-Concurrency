@@ -7,14 +7,9 @@
 #include <curl/curl.h>
 #include <string.h>
 #include <stdbool.h>
-<<<<<<< HEAD
-#include <arpa/inet.h>
-#include "png_utils/cat_png.h"
-// #include "png_utils/zutil.h"
-=======
 #include "png_utils/zutil.h"
 #include "png_utils/cat_png.h"
->>>>>>> e8a58d19cdb827077a14c95d2393e8008a8212d1
+// #include "png_utils/zutil.h"
 #include "paster.h"
 
 #define URL_1 "http://ece252-1.uwaterloo.ca:2520/image?img="
@@ -179,22 +174,12 @@ void *fetch_image(void *arg){
             U64 inf_size;
             mem_inf(idat_data + store_index, &inf_size, strip_data.buf, strip_data.size);
 
-<<<<<<< HEAD
-            #ifdef DEBUG_MODE
-            printf("Expected size of inflated data: %d, Got: %ld\n", STRIP_HEIGHT * (PNG_WIDTH * 4 + 1), inf_size);
-            #endif
-
             printf("Found unique segment: %d\n", strip_data.seq);
             // STORE DATA HERE
             check_img[strip_data.seq] = true;
             num_fetched++;
         } else {
             printf("Found repeated segment: %d\n", strip_data.seq);
-=======
-            check_img[strip_data.seq] = true;
-            num_fetched++;
-            free(strip_data.buf);
->>>>>>> e8a58d19cdb827077a14c95d2393e8008a8212d1
         }
 
         data_buf_cleanup(&strip_data);
