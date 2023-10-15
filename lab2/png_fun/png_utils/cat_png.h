@@ -3,7 +3,8 @@
  * @brief: function definitions for concatenating pngs
  */
 
-#pragma once
+#ifndef CAT_PNG_H
+#define CAT_PNG_H
 
 #include "png_info.h"
 #include <stdatomic.h>
@@ -49,3 +50,5 @@ void create_ihdr_chunk(ihdr_chunk_p dest);
  *  @param dest Destination of new IEND chunk
  */
 void create_iend_chunk(chunk_p dest);
+
+#endif

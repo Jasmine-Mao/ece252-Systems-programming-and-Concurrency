@@ -9,7 +9,8 @@
  *            https://www.zlib.net/zlib_how.html
  */
 
-#pragma once
+#ifndef ZUTIL_H
+#define ZUTIL_H
 
 /* INCLUDES */
 #include <stdio.h>
@@ -36,3 +37,5 @@ typedef unsigned long int U64;
 int mem_def(U8 *dest, U64 *dest_len, U8 *source,  U64 source_len, int level);
 int mem_inf(U8 *dest, U64 *dest_len, U8 *source,  U64 source_len);
 void zerr(int ret);
+
+#endif

@@ -5,7 +5,8 @@
  *
  * This software may be freely redistributed under the terms of MIT License
  */
-#pragma once
+#ifndef PNG_INFO_H
+#define PNG_INFO_H
 
 #include <stdio.h>
 
@@ -64,3 +65,5 @@ typedef struct simple_PNG {
     chunk_p p_IDAT;
     chunk_p p_IEND;
 } *simple_PNG_p;
+
+#endif
