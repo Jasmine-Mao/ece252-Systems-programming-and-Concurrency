@@ -5,7 +5,6 @@
 #include <arpa/inet.h>
 #include "zutil.h"
 #include "crc.h"
-#include "png_info.h"
 #include "cat_png.h"
 
 void create_ihdr_chunk(ihdr_chunk_p ihdr_buf){
