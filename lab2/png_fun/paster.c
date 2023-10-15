@@ -20,17 +20,19 @@
 /* GLOBAL VARIABLES */
 atomic_bool check_img[50] = {false};    // false if image has not been fetched, true if image is already stored
 atomic_int num_fetched = 0;             // counter for the number of unique images we have fetched, limit is 50
+//#define BUF_SIZE 1048576  /* 1024*1024 = 1M */
 
 /* Using the additional global variable defined in cat_png.h:
 atomic_uchar idat_data[INFLATED_DATA_SIZE];
 */
 
-/*STRUCT DECLERATIONS FOR THREADING STUFF*/
+/*STRUCT DECLARATIONS FOR THREADING STUFF*/
 struct thread_args
 {
     // variables here
     int thread_number;
-    int image_number;
+    CURL *curl_handle;
+    int image_number; /* N in [1,3]*/
 };
 
 struct thread_return
@@ -72,6 +74,21 @@ size_t idat_write_callback(char * recv, size_t size, size_t nmemb, void *userdat
     return real_size;
 }
 
+size_t header_callback(char *p_recv, size_t size, size_t nmemb, void *userdata)
+{
+    int realsize = size * nmemb;
+    DATA_BUF *strip_data = userdata; 
+    
+    if (realsize > strlen(ECE252_HEADER) &&
+	 strncmp(p_recv, ECE252_HEADER, strlen(ECE252_HEADER)) == 0) {
+
+         /* extract img sequence number */
+	 strip_data->seq = atoi(p_recv + strlen(ECE252_HEADER));
+
+    }
+    return realsize;
+}
+
 /*THREAD SAFE FUNCTION TO BE CALLED BY ALL THREADS*/
 void *fetch_image(void *arg){
     /*INIT STUFF FOR CURL HANDLING*/
@@ -81,6 +98,9 @@ void *fetch_image(void *arg){
     CURL *curl_handle = curl_easy_init();
     CURLcode res;
     char url[256];
+    //RECV_BUF recv_buf;
+
+    //recv_buf_init(&recv_buf, BUF_SIZE);
 
     /*SEND THREAD TO APPROPRIATE SERVER*/
     int server = p_in->thread_number % 3;
@@ -92,7 +112,7 @@ void *fetch_image(void *arg){
         strcpy(url, URL_3);
 
     /*FULLY CONSTRUCT URL WITH THE IMAGE NUMBER*/
-    char img = p_in->image_number + '0';
+    char img = p_in->image_number + '0'; 
     strcat(url, &img);
     printf("url: %s\n", url);
 
@@ -109,13 +129,16 @@ void *fetch_image(void *arg){
         curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, (void *)&strip_data);
 
         // Define header callback
-        // TODO: @iman
+ 
+        curl_easy_setopt(curl_handle, CURLOPT_HEADERFUNCTION, header_callback);  
+        curl_easy_setopt(curl_handle, CURLOPT_HEADERDATA, (void *)&strip_data);
         
+
         // Fetch data from server
         res = curl_easy_perform(curl_handle);
         // TODO check res for CURLE_OK, handle error if not ok. may wanna nest rest of logic in another if block
 
-        if (!check_img[strip_data.seq]){
+        if (!check_img[strip_data.seq]){ /*checks if image segment was fetched already*/
             // Inflate and store idat data
             int store_index = strip_data.seq * STRIP_HEIGHT * (PNG_WIDTH * 4 + 1);
             U64 inf_size;
@@ -192,6 +215,10 @@ int main(int argc, char* argv[]){
         }
     }
     printf("all threads joined\n");
+    int result = concatenate_png();
+    if (result != 0){
+        printf("catpng failure \n");
+    }
 
     curl_global_cleanup();  // clean up curl environment before return
     return 0;
