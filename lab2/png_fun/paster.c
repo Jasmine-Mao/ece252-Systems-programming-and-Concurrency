@@ -9,7 +9,7 @@
 #include <stdbool.h>
 #include <arpa/inet.h>
 #include "png_utils/cat_png.h"
-#include "png_utils/zutil.h"
+// #include "png_utils/zutil.h"
 #include "paster.h"
 
 #define URL_1 "http://ece252-1.uwaterloo.ca:2520/image?img="
@@ -49,6 +49,32 @@ typedef struct data_buf {
                      /* <0 indicates an invalid seq number */
 } DATA_BUF;
 
+int data_buf_init(DATA_BUF *ptr, size_t max_size){
+    void *p = NULL;
+
+    if(ptr == NULL){
+        return 1;
+    }
+    p = malloc(max_size);
+    if (p == NULL) {
+	    return 2;
+    }
+
+    ptr->buf = p;
+    ptr->size = 0;
+    ptr->seq = -1;
+    return 0;
+}
+
+int data_buf_cleanup(DATA_BUF *ptr) {
+    if (ptr == NULL) {
+        return 1;
+    }
+
+    free(ptr->buf);
+    return 0;
+}
+
 size_t idat_write_callback(char * recv, size_t size, size_t nmemb, void *userdata){
     // total size of received png data
     size_t real_size = size * nmemb;
@@ -76,15 +102,14 @@ size_t idat_write_callback(char * recv, size_t size, size_t nmemb, void *userdat
 
 size_t header_callback(char *p_recv, size_t size, size_t nmemb, void *userdata)
 {
+    //printf(p_recv);
     int realsize = size * nmemb;
     DATA_BUF *strip_data = userdata; 
     
     if (realsize > strlen(ECE252_HEADER) &&
 	 strncmp(p_recv, ECE252_HEADER, strlen(ECE252_HEADER)) == 0) {
-
          /* extract img sequence number */
-	 strip_data->seq = atoi(p_recv + strlen(ECE252_HEADER));
-
+        strip_data->seq = atoi(p_recv + strlen(ECE252_HEADER));
     }
     return realsize;
 }
@@ -122,7 +147,11 @@ void *fetch_image(void *arg){
     /*ACTUAL FETCHING STUFF*/
     while(num_fetched < 50){
         DATA_BUF strip_data;
-        strip_data.seq = -1;
+
+        data_buf_init(&strip_data, 10000);
+        /*FIX LATER*/
+        
+        // strip_data.seq = -1;
 
         // Define write callback
         curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, idat_write_callback);
@@ -139,6 +168,7 @@ void *fetch_image(void *arg){
         // TODO check res for CURLE_OK, handle error if not ok. may wanna nest rest of logic in another if block
 
         if (!check_img[strip_data.seq]){ /*checks if image segment was fetched already*/
+        
             // Inflate and store idat data
             int store_index = strip_data.seq * STRIP_HEIGHT * (PNG_WIDTH * 4 + 1);
             U64 inf_size;
@@ -148,9 +178,15 @@ void *fetch_image(void *arg){
             printf("Expected size of inflated data: %d, Got: %ld\n", STRIP_HEIGHT * (PNG_WIDTH * 4 + 1), inf_size);
             #endif
 
+            printf("Found unique segment: %d\n", strip_data.seq);
+            // STORE DATA HERE
             check_img[strip_data.seq] = true;
             num_fetched++;
+        } else {
+            printf("Found repeated segment: %d\n", strip_data.seq);
         }
+
+        data_buf_cleanup(&strip_data);
     }
 
     /*CLEAN UP ENVIRONMENT AND EVERYTHING ELSE*/
@@ -216,10 +252,10 @@ int main(int argc, char* argv[]){
         }
     }
     printf("all threads joined\n");
-    int result = concatenate_png();
+    /* int result = concatenate_png();
     if (result != 0){
         printf("catpng failure \n");
-    }
+    } */
 
     curl_global_cleanup();  // clean up curl environment before return
     return 0;
