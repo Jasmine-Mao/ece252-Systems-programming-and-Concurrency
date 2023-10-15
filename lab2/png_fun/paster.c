@@ -7,6 +7,7 @@
 #include <curl/curl.h>
 #include <string.h>
 #include <stdbool.h>
+#include <arpa/inet.h>
 #include "png_utils/zutil.h"
 #include "png_utils/cat_png.h"
 // #include "png_utils/zutil.h"

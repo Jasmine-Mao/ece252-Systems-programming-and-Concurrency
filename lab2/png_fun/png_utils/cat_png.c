@@ -7,7 +7,7 @@
 #include "crc.h"
 #include "cat_png.h"
 
-void create_ihdr_chunk(ihdr_chunk_p ihdr_buf){
+void create_ihdr_chunk(struct ihdr_chunk *ihdr_buf){
     ihdr_chunk_p ihdr_chunk = malloc(IHDR_CHUNK_SIZE);
     data_IHDR_p data = malloc(DATA_IHDR_SIZE);
 
@@ -36,7 +36,7 @@ void create_ihdr_chunk(ihdr_chunk_p ihdr_buf){
     ihdr_buf = ihdr_chunk;
 }
 
-void create_iend_chunk(chunk_p iend_buf){
+void create_iend_chunk(struct chunk * iend_buf){
     chunk_p iend_chunk = malloc(sizeof(struct chunk));
     iend_chunk->p_data = NULL;
 
@@ -98,16 +98,11 @@ int write_png(struct simple_PNG *png_to_write, size_t idat_data_size) {
 
 int concatenate_png(){
     simple_PNG_p png_all = malloc(sizeof(struct simple_PNG));
-
-    ihdr_chunk_p ihdr_buffer;
-    chunk_p iend_buffer;
-
+    png_all->p_IHDR = NULL;
+    png_all->p_IEND = NULL;
     // IHDR and IEND chunks are populated with constants
-    create_ihdr_chunk(ihdr_buffer);
-    create_iend_chunk(iend_buffer);
-
-    png_all->p_IHDR = ihdr_buffer;
-    png_all->p_IEND = iend_buffer;
+    create_ihdr_chunk(png_all->p_IHDR);
+    create_iend_chunk(png_all->p_IEND);
 
     // IDAT Compression
     U8 *def_buf = malloc(INFLATED_DATA_SIZE);

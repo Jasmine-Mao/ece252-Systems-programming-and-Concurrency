@@ -43,12 +43,12 @@ int concatenate_png();
  *
  *  @param dest Destination of new IHDR chunk
  */
-void create_ihdr_chunk(ihdr_chunk_p dest);
+void create_ihdr_chunk(struct ihdr_chunk * ihdr_buf);
 
 /** @brief Create PNG IEND chunk
  *
  *  @param dest Destination of new IEND chunk
  */
-void create_iend_chunk(chunk_p dest);
+void create_iend_chunk(struct chunk * iend_buf);
 
 #endif
