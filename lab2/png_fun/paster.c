@@ -97,7 +97,7 @@ size_t header_callback(char *p_recv, size_t size, size_t nmemb, void *userdata)
 void *fetch_image(void *arg){
     /*INIT STUFF FOR CURL HANDLING*/
     struct thread_args *p_in = arg;
-    //struct thread_return *p_out = malloc(sizeof(struct thread_return));
+    struct thread_return *p_out = malloc(sizeof(struct thread_return));
 
     CURL *curl_handle = curl_easy_init();
     CURLcode res;
@@ -152,7 +152,7 @@ void *fetch_image(void *arg){
             U64 inf_size;
             mem_inf(idat_data + store_index, &inf_size, strip_data.buf, strip_data.size);
 
-            printf("Found unique segment: %d for thread number %d\n", strip_data.seq, p_in->thread_number);
+            //printf("Found unique segment: %d for thread number %d\n", strip_data.seq, p_in->thread_number);
 
             // STORE DATA HERE
             check_img[strip_data.seq] = true;
@@ -172,9 +172,11 @@ void *fetch_image(void *arg){
 
     /*CLEAN UP ENVIRONMENT AND EVERYTHING ELSE*/
     curl_easy_cleanup(curl_handle);
+    void* ret_val = (void*)p_out->thread_number;
+    free(p_out);
     /* p_out->thread_number = p_in->thread_number;
     free(p_out); */
-    return;
+    return ret_val;
 }
 
 int main(int argc, char* argv[]){
@@ -211,7 +213,7 @@ int main(int argc, char* argv[]){
     pthread_t threads[num_threads];
 
     struct thread_return *results[num_threads];
-    struct thread_args in_params[num_threads];
+    //struct thread_args in_params[num_threads];
 
     /*SET CURL ENVIRONMENT AND INIT UNIQUE CURL FOR ALL THREADS*/
     curl_global_init(CURL_GLOBAL_DEFAULT);
@@ -219,10 +221,11 @@ int main(int argc, char* argv[]){
     /*CREATE THREADS; NUMBER OF THREADS CREATED SPECIFIED BY USER*/
     int return_success[num_threads];
     for(int x = 0; x < num_threads; x++){
-        in_params[x].thread_number = x;
-        in_params[x].image_number = img_number;
+        struct thread_args in_params = { 0, NULL, 0 };
+        in_params.thread_number = x;
+        in_params.image_number = img_number;
         do{
-            return_success[x] = pthread_create(&threads[x], NULL, fetch_image, &in_params[x]);
+            return_success[x] = pthread_create(&threads[x], NULL, fetch_image, &in_params);
             printf("trying thread %d\n", x);
         }
         while(return_success[x] != 0);
@@ -233,12 +236,12 @@ int main(int argc, char* argv[]){
     for(int i = 0; i < num_threads; i++){
         /*CHECK IF THREAD CREATED WAS SUCCESSFUL. IF NOT, DO NOT ATTEMPT TO JOIN THE THREAD -- SEG FAULT*/
         if(return_success[i] == 0){
-            // printf("thread %d created successfully\n", i);
+            printf("thread %d created successfully\n", i);
             pthread_join(threads[i], (void **)&(results[i]));
-            // printf("thread %d joined\n", i);
+            printf("thread %d joined\n", i);
         }
     }
-    // printf("all threads joined\n");
+    printf("all threads joined\n");
     int result = concatenate_png();
     if (result != 0){
         printf("catpng failure \n");
