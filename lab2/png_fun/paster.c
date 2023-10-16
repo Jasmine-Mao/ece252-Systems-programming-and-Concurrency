@@ -59,7 +59,7 @@ size_t idat_write_callback(char * recv, size_t size, size_t nmemb, void *userdat
     // type cast to recv_buf struct
     DATA_BUF * strip_data = (DATA_BUF *) userdata;
 
-    // early return if fragment is non-unqie
+    // early return if fragment is non-unique
     if (check_img[strip_data->seq]){
         return real_size;
     }
@@ -102,9 +102,6 @@ void *fetch_image(void *arg){
     CURL *curl_handle = curl_easy_init();
     CURLcode res;
     char url[256];
-    //RECV_BUF recv_buf;
-
-    //recv_buf_init(&recv_buf, BUF_SIZE);
 
     /*SEND THREAD TO APPROPRIATE SERVER*/
     int server = p_in->thread_number % 3;
@@ -204,7 +201,7 @@ int main(int argc, char* argv[]){
             printf("arg passed for image: %d\n", img_number);
             break;
             default:
-            // if nothing was passed, we just use the defauly value
+            // if nothing was passed, we just use the default value
             break;
         }
     }
