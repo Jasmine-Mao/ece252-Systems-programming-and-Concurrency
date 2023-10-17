@@ -65,7 +65,7 @@ size_t idat_write_callback(char * recv, size_t size, size_t nmemb, void *userdat
     size_buf = ntohl(size_buf);
 
     if (size_buf > real_size){
-        return -1;
+        return CURLE_WRITE_ERROR;
     }
 
     strip_data->size = (size_t)size_buf;
@@ -73,8 +73,6 @@ size_t idat_write_callback(char * recv, size_t size, size_t nmemb, void *userdat
     // copy IDAT data
     read_index += CHUNK_LEN_SIZE + CHUNK_TYPE_SIZE;
     strip_data->buf = malloc(strip_data->size);
-
-    printf("Expected size: %ld, real size: %ld.\n", strip_data->size, real_size);
 
     memcpy(strip_data->buf, recv + read_index, strip_data->size);
 
@@ -160,7 +158,7 @@ void *fetch_image(void *arg){
             U64 inf_size;
             mem_inf(idat_data + store_index, &inf_size, strip_data.buf, strip_data.size);
 
-            //printf("Found unique segment: %d for thread number %d\n", strip_data.seq, p_in->thread_number);
+            printf("Found unique segment: %d for thread number %d\n", strip_data.seq, p_in->thread_number);
 
             // STORE DATA HERE
             check_img[strip_data.seq] = true;
@@ -211,6 +209,7 @@ int main(int argc, char* argv[]){
 
     /*INIT THREAD STUFF*/
     pthread_t threads[num_threads];
+    struct thread_args in_params[num_threads];
 
     /*SET CURL ENVIRONMENT AND INIT UNIQUE CURL FOR ALL THREADS*/
     curl_global_init(CURL_GLOBAL_DEFAULT);
@@ -219,14 +218,16 @@ int main(int argc, char* argv[]){
     int return_success[num_threads];
     memset(return_success, -1, sizeof(int) * num_threads);
     for(int x = 0; x < num_threads; x++){
-        struct thread_args in_params = { 0, NULL, 0 };
-        in_params.thread_number = x;
-        in_params.image_number = img_number;
-        while(return_success[x] != 0){
-            return_success[x] = pthread_create(&threads[x], NULL, fetch_image, &in_params);
-            printf("trying thread %d\n", x);
+        in_params[x].thread_number = x;
+        in_params[x].image_number = img_number;
+        return_success[x] = pthread_create(threads + x, NULL, fetch_image, in_params + x);
+        printf("trying thread %d\n", x);
+        if (return_success[x] == 0){
+            printf("thread %d succeeded, returned %d\n", x, return_success[x]);
         }
-        printf("thread %d succeeded, returned %d\n", x, return_success[x]);
+        else{
+            printf("THREAD %d FAILED", x);
+        }
     }
 
     /*JOIN ALL THREADS BACK TO MAIN*/
