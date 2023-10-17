@@ -148,7 +148,7 @@ void *fetch_image(void *arg){
             U64 inf_size;
             mem_inf(idat_data + store_index, &inf_size, strip_data.buf, strip_data.size);
 
-            /*printf("Found unique segment: %d for thread number %d\n", strip_data.seq, p_in->thread_number);*/
+            //printf("Found unique segment: %d for thread number %d\n", strip_data.seq, p_in->thread_number);
 
             // STORE DATA HERE
             check_img[strip_data.seq] = true;
@@ -211,23 +211,20 @@ int main(int argc, char* argv[]){
         in_params[x].thread_number = x;
         in_params[x].image_number = img_number;
         return_success[x] = pthread_create(threads + x, NULL, fetch_image, in_params + x);
-        /*printf("trying thread %d\n", x);*/
-        if (return_success[x] == 0){
-            /*printf("thread %d succeeded, returned %d\n", x, return_success[x]);*/
-        }
-        else{
-            printf("THREAD %d FAILED", x);
-        }
+        //printf("trying thread %d\n", x);
+        // if (return_success[x] == 0){
+        //     printf("thread %d succeeded, returned %d\n", x, return_success[x]);
+        // }
+        // else{
+        //     printf("THREAD %d FAILED\n", x);
+        // }
     }
 
     /*JOIN ALL THREADS BACK TO MAIN*/
     for(int i = 0; i < num_threads; i++){
         /*CHECK IF THREAD CREATED WAS SUCCESSFUL. IF NOT, DO NOT ATTEMPT TO JOIN THE THREAD -- SEG FAULT*/
         if(return_success[i] == 0){
-            /*printf("thread %d created successfully\n", i);*/
             pthread_join(threads[i], NULL);
-            /*printf("thread %d joined\n", i);*/
-            /*printf("thread freed\n");*/
         }
     }
 
