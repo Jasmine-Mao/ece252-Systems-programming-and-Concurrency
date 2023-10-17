@@ -36,12 +36,6 @@ struct thread_args
     int image_number; /* N in [1,3]*/
 };
 
-struct thread_return
-{
-    int thread_number;   // for debugging purposes only!!
-    int return_success;  // returns a number; based on that number we know if the thread has succeeded or failed in its task
-};
-
 /*FROM STARTER; WILL BE MODIFIED LATER*/
 typedef struct data_buf {
     U8 *buf;            /* memory to hold a copy of received IDAT data */
@@ -66,12 +60,22 @@ size_t idat_write_callback(char * recv, size_t size, size_t nmemb, void *userdat
 
     // copy length
     int read_index = PNG_SIG_SIZE + IHDR_CHUNK_SIZE;
-    memcpy(&(strip_data->size), recv + read_index, CHUNK_LEN_SIZE);
-    strip_data->size = ntohl(strip_data->size);
+    unsigned int size_buf = 0;
+    memcpy(&size_buf, recv + read_index, CHUNK_LEN_SIZE);
+    size_buf = ntohl(size_buf);
+
+    if (size_buf > real_size){
+        return -1;
+    }
+
+    strip_data->size = (size_t)size_buf;
 
     // copy IDAT data
     read_index += CHUNK_LEN_SIZE + CHUNK_TYPE_SIZE;
     strip_data->buf = malloc(strip_data->size);
+
+    printf("Expected size: %ld, real size: %ld.\n", strip_data->size, real_size);
+
     memcpy(strip_data->buf, recv + read_index, strip_data->size);
 
     strip_data->write_success = 0;
@@ -97,13 +101,12 @@ size_t header_callback(char *p_recv, size_t size, size_t nmemb, void *userdata)
 void *fetch_image(void *arg){
     /*INIT STUFF FOR CURL HANDLING*/
     struct thread_args *p_in = arg;
-    struct thread_return *p_out = malloc(sizeof(struct thread_return));
 
     CURL *curl_handle = curl_easy_init();
 
     if (curl_handle == NULL) {
         fprintf(stderr, "curl_easy_init: returned NULL\n");
-        return ((void *)p_out); // should handle this more effectively
+        return NULL; // should handle this more effectively
     }
 
     CURLcode res;
@@ -163,27 +166,17 @@ void *fetch_image(void *arg){
             check_img[strip_data.seq] = true;
             num_fetched++;
         }
-        else if(res != CURLE_OK){
-            //printf("Curl failed for thread number %d.\n", p_in->thread_number);
-        }
-        else {
-            //printf("Found repeated segment: %d for thread number %d\n", strip_data.seq, p_in->thread_number);
-        }
-
         if (strip_data.write_success == 0){
             free(strip_data.buf);
         }
+        strip_data.size = 0;
     }
 
     /*CLEAN UP ENVIRONMENT AND EVERYTHING ELSE*/
     curl_easy_cleanup(curl_handle);
     free(img_num);
-    //void* ret_val = (void*)p_out->thread_number;
-    /* free(p_out);
-    free(img_num); */
-    /* p_out->thread_number = p_in->thread_number;
-    free(p_out); */
-    return ((void *)p_out);
+
+    return NULL;
 }
 
 int main(int argc, char* argv[]){
@@ -219,9 +212,6 @@ int main(int argc, char* argv[]){
     /*INIT THREAD STUFF*/
     pthread_t threads[num_threads];
 
-    //struct thread_args in_params[num_threads];
-    struct thread_return *results[num_threads];
-
     /*SET CURL ENVIRONMENT AND INIT UNIQUE CURL FOR ALL THREADS*/
     curl_global_init(CURL_GLOBAL_DEFAULT);
 
@@ -244,12 +234,12 @@ int main(int argc, char* argv[]){
         /*CHECK IF THREAD CREATED WAS SUCCESSFUL. IF NOT, DO NOT ATTEMPT TO JOIN THE THREAD -- SEG FAULT*/
         if(return_success[i] == 0){
             printf("thread %d created successfully\n", i);
-            pthread_join(threads[i], (void **)&(results[i]));
+            pthread_join(threads[i], NULL);
             printf("thread %d joined\n", i);
-            free(results[i]);
             printf("thread freed\n");
         }
     }
+
     printf("all threads joined\n");
     int result = concatenate_png();
     if (result != 0){
