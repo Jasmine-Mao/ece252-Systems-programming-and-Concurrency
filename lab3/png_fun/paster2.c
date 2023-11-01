@@ -6,6 +6,8 @@
 
 
 // likely we still want a curl header and data callback function, but the data one will use the ENTIRE PNG
+// curl header function
+// curl data function
 
 int consumer_protocol(){
 
@@ -36,6 +38,10 @@ int run_proccesses(int producer_count, int consumer_count){
         // lets break then call producer_protocol 
         // or the reverse order
         // if the process is a parent we wanna keep looping
+        // int pid = fork()
+        // if (pid is child){
+         //   producer_protocol()
+         //   break
     }
 
     for (int i = 0; i < consumer_count; i++){
@@ -56,8 +62,6 @@ int main(int argc, char * argv[]){
     // PARSE ARGS:
     // P, C passed to run_processes function
     // B, X, N are set into global variables for buffer size, sleep time, and image number.
-    
-
 
     return 0;
 }
