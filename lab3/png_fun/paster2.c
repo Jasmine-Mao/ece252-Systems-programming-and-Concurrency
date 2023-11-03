@@ -9,7 +9,12 @@
 // curl header function
 // curl data function
 
-int consumer_protocol(){
+int consumer_protocol(){ //iman
+    /*steps*/
+    /*1. access shared memory (buffer)*/
+    /*2. fetch image segments in order(/)
+    /*3. inflate and concatenate all*/
+    /*4. deflate once all have been concatenated*/
 
     // this is where the consumer parses the png data (from our buffer) for the idat data, inflates and stores it
 
@@ -31,7 +36,7 @@ int producer_protocol(){
     return 0;
 }
 
-int run_proccesses(int producer_count, int consumer_count){
+int run_processes(int producer_count, int consumer_count){
 
     for (int i = 0; i < producer_count; i++){
         // if pid == child,
