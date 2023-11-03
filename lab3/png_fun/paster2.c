@@ -12,9 +12,11 @@
 int consumer_protocol(){ //iman
     /*steps*/
     /*1. access shared memory (buffer)*/
-    /*2. fetch image segments in order(/)
+    /*2. fetch image segments in order*/
     /*3. inflate and concatenate all*/
     /*4. deflate once all have been concatenated*/
+
+    //have to manage multiple consumers (child processes)
 
     // this is where the consumer parses the png data (from our buffer) for the idat data, inflates and stores it
 
