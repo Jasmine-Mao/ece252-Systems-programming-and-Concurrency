@@ -1,9 +1,10 @@
+#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <getopt.h>
+#include <sys/types.h>
 
 #include "png_utils/cat_png.h"
-
+#include "paster2.h"
 
 // likely we still want a curl header and data callback function, but the data one will use the ENTIRE PNG
 // curl header function
@@ -38,7 +39,9 @@ int producer_protocol(){
     return 0;
 }
 
-int run_processes(int producer_count, int consumer_count){
+int run_proccesses(int producer_count, int consumer_count){
+    pid_t pid = 0;
+    pid_t children[producer_count + consumer_count];
 
     for (int i = 0; i < producer_count; i++){
         // if pid == child,
