@@ -2,10 +2,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <getopt.h>
+#include <sys/types.h>
 #include <curl/curl.h>
 #include <semaphore.h>
 #include <unistd.h>
+
 #include "png_utils/cat_png.h"
+#include "paster2.h"
 
 #define URL_1           "http://ece252-1.uwaterloo.ca:2520/image?img="
 #define URL_2           "http://ece252-2.uwaterloo.ca:2520/image?img="
@@ -70,12 +73,6 @@ int consumer_protocol(){ //iman
     // critical section somewhere here
 
     return 0;
-}
-
-void produce(){
-    // function to run the fetch procedure
-
-    // not sure if this will actually be needed or not lol
 }
 
 int write_file(const char *path, const void *in, size_t len)
@@ -192,7 +189,9 @@ int producer_protocol(int process_number, int sleep_time, int num_processes, int
     return 0;
 }
 
-int run_processes(int producer_count, int consumer_count){
+int run_proccesses(int producer_count, int consumer_count){
+    pid_t pid = 0;
+    pid_t children[producer_count + consumer_count];
 
     for (int i = 0; i < producer_count; i++){
         // if pid == child,
@@ -216,6 +215,7 @@ int run_processes(int producer_count, int consumer_count){
 
     return 0;
 }
+
 
 int main(int argc, char * argv[]){
     int c;
