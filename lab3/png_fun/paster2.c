@@ -208,6 +208,9 @@ int run_processes(int producer_count, int consumer_count){
     sem_t * sem_items = shmat(sem_items_shmid, NULL, 0);
     sem_t * sem_spaces = shmat(sem_spaces_shmid, NULL, 0);
     sem_t * sem_lock = shmat(sem_lock_shmid, NULL, 0);
+    sem_init(sem_items, SEM_PROC, 0);
+    sem_init(sem_spaces, SEM_PROC, BUFFER_SIZE);
+    sem_init(sem_lock, SEM_PROC, 1);
 
     int child_count = producer_count + consumer_count;
     pid_t pid = 0;
