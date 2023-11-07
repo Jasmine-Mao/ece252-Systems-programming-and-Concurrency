@@ -283,15 +283,9 @@ int main(int argc, char * argv[]){
     int p = atoi(argv[2]);
     int c = atoi(argv[3]);
 
+    curl_global_init(CURL_GLOBAL_DEFAULT);
+
     run_processes(p, c);
-
-    // curl_global_init(CURL_GLOBAL_DEFAULT);  // init curl stuff
-    
-    // sem_t* buffer_spaces;
-    // sem_t* buffer_items;
-
-    // sem_t* buffer_permission;
-    // producer_protocol(3, 50, 11, 1);
 
     return 0;
 }
