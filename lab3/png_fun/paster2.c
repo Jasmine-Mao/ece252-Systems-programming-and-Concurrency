@@ -13,32 +13,27 @@
 #include "ring_buffer.h"
 #include "paster2.h"
 
-#define URL_1           "http://ece252-1.uwaterloo.ca:2520/image?img="
-#define URL_2           "http://ece252-2.uwaterloo.ca:2520/image?img="
-#define URL_3           "http://ece252-3.uwaterloo.ca:2520/image?img="
+#define URL_1           "http://ece252-1.uwaterloo.ca:2530/image?img="
+#define URL_2           "http://ece252-2.uwaterloo.ca:2530/image?img="
+#define URL_3           "http://ece252-3.uwaterloo.ca:2530/image?img="
 #define URL_IMAGE_SEG   "&part="
-#define SEM_PROC 1
+#define ECE_252_HEADER  "X-Ece252-Fragment: "
+#define SEM_PROC        1
 
 int BUFFER_SIZE;
 int SLEEP_TIME;
 int IMG_NUM;
 
-/*ASK ABOUT WRITE CALL BACK*/
+sem_t * sem_items;
+sem_t * sem_spaces;
+sem_t * sem_lock;
+
+
 size_t data_write_callback(char* recv, size_t size, size_t nmemb, void *userdata){
     size_t real_size = size * nmemb;
 
     DATA_BUF* strip_data = (DATA_BUF*)userdata;
-    if(strip_data->size + real_size +1 > strip_data->max_size){
-        
-
-
-
-
-
-
-
-
-
+    if(size > 10000){
         return CURLE_WRITE_ERROR;
     }
 
@@ -49,12 +44,15 @@ size_t data_write_callback(char* recv, size_t size, size_t nmemb, void *userdata
     return real_size;
 }
 
-// likely we still want a curl header and data callback function, but the data one will use the ENTIRE PNG
-// curl header function
-// curl data function
-// queue implementation 
-    // struct typedef blah blah blad
-    // ask chat gpt or steal from stack overflow
+size_t header_write_callback(char* recv, size_t size, size_t nmemb, void* userdata){
+    size_t real_size = size * nmemb;
+    DATA_BUF* strip_data = userdata;
+
+    if(real_size > strlen(ECE_252_HEADER) && strncmp(recv, ECE_252_HEADER, strlen(ECE_252_HEADER)) == 0){
+        strip_data->seq = atoi(recv + strlen(ECE_252_HEADER));
+    }
+    return real_size;
+}
 
 int consumer_protocol(){ //iman
     /*steps*/
@@ -71,33 +69,6 @@ int consumer_protocol(){ //iman
     // critical section somewhere here
 
     return 0;
-}
-
-int write_file(const char *path, const void *in, size_t len)
-{
-    FILE *fp = NULL;
-
-    if (path == NULL) {
-        fprintf(stderr, "write_file: file name is null!\n");
-        return -1;
-    }
-
-    if (in == NULL) {
-        fprintf(stderr, "write_file: input data is null!\n");
-        return -1;
-    }
-
-    fp = fopen(path, "wb");
-    if (fp == NULL) {
-        perror("fopen");
-        return -2;
-    }
-
-    if (fwrite(in, 1, len, fp) != len) {
-        fprintf(stderr, "write_file: incomplete write!\n");
-        return -3; 
-    }
-    return fclose(fp);
 }
 
 int producer_protocol(int process_number, int num_processes){
@@ -125,6 +96,7 @@ int producer_protocol(int process_number, int num_processes){
     else if(server_number == 0){
         strcpy(url, URL_3);
     }
+    
     char* image_num = malloc(sizeof(int));
     sprintf(image_num, "%d", IMG_NUM);
     strcat(url, image_num);
@@ -150,37 +122,30 @@ int producer_protocol(int process_number, int num_processes){
         curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, data_write_callback);
         curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, (void*)&strip_data);
 
+        curl_easy_setopt(curl_handle, CURLOPT_HEADER, header_write_callback);
+        curl_easy_setopt(curl_handle, CURLOPT_HEADERDATA, (void*)&strip_data);
         curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, "libcurl-agent/1.0");
 
         res = curl_easy_perform(curl_handle);
-        char fname[256];
 
         if((res == CURLE_OK)){
-            printf("made it");
-            sprintf(fname, "./output_%d.png", process_number);
-            write_file(fname, strip_data.png_data, strip_data.size);
+            printf("made it\n");
+            sem_wait(sem_spaces);
+            sem_wait(sem_lock);
 
+            // add to buffer
+            
 
+            sem_post(sem_lock);
+            sem_post(sem_items);
 
+            printf("out of crit sect\n");
         }
 
-        process_number = process_number + num_processes;
+        process_number += num_processes;
 
         free(seg);
-
-        usleep(SLEEP_TIME * 100);
-        break;
     }
-
-
-    
-    // this is where we wanna curl and store pngs in our buffer
-    // if there is no space in the buffer, do nothing
-
-    // smeaphore to access the buffer as a producer bc only one producer allowed in the buffer at a time
-    // we can loop here
-
-    // critical section somewhere here
     curl_easy_cleanup(curl_handle);
     return 0;
 }
@@ -205,9 +170,9 @@ int run_processes(int producer_count, int consumer_count){
     int sem_items_shmid = shmget(IPC_PRIVATE, sizeof(sem_t), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
     int sem_spaces_shmid = shmget(IPC_PRIVATE, sizeof(sem_t), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
     int sem_lock_shmid = shmget(IPC_PRIVATE, sizeof(sem_t), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
-    sem_t * sem_items = shmat(sem_items_shmid, NULL, 0);
-    sem_t * sem_spaces = shmat(sem_spaces_shmid, NULL, 0);
-    sem_t * sem_lock = shmat(sem_lock_shmid, NULL, 0);
+    sem_items = shmat(sem_items_shmid, NULL, 0);
+    sem_spaces = shmat(sem_spaces_shmid, NULL, 0);
+    sem_lock = shmat(sem_lock_shmid, NULL, 0);
     sem_init(sem_items, SEM_PROC, 0);
     sem_init(sem_spaces, SEM_PROC, BUFFER_SIZE);
     sem_init(sem_lock, SEM_PROC, 1);
@@ -270,6 +235,8 @@ int run_processes(int producer_count, int consumer_count){
 
 int main(int argc, char * argv[]){
     // PARSE ARGS:
+    // ./paster2 B P C X N
+
     // P, C passed to run_processes function
     // B, X, N are stored in global variables BUFFER_SIZE, SLEEP_TIME, IMG_NUM
     if (argc != 6){
