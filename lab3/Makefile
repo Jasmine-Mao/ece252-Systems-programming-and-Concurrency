@@ -4,7 +4,7 @@ CFLAGS = -Wall -g
 SRC_DIR = png_fun
 UTILS_DIR = $(SRC_DIR)/png_utils
 
-PASTER_OBJS = $(SRC_DIR)/paster2.o $(UTILS_DIR)/cat_png.o $(UTILS_DIR)/crc.o $(UTILS_DIR)/zutil.o
+PASTER_OBJS = $(SRC_DIR)/paster2.o $(SRC_DIR)/ring_buffer.o $(UTILS_DIR)/cat_png.o $(UTILS_DIR)/crc.o $(UTILS_DIR)/zutil.o
 
 all: paster2
 

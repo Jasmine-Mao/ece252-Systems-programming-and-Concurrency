@@ -4,7 +4,7 @@
 #include "ring_buffer.h"
 
 int ring_buffer_init(RING_BUFFER * ring_buf, int buffer_size){
-    ring_buf->size = buffer_size;
+    ring_buf->capacity = buffer_size;
     ring_buf->head = -1;
     ring_buf->tail = -1;
 
@@ -15,7 +15,7 @@ int ring_buffer_init(RING_BUFFER * ring_buf, int buffer_size){
 }
 
 int ring_buffer_is_full(RING_BUFFER * ring_buf){
-    return(((ring_buf->tail + 1) % ring_buf->size) == ring_buf->head);
+    return(((ring_buf->tail + 1) % ring_buf->capacity) == ring_buf->head);
 }
 
 int ring_buffer_is_empty(RING_BUFFER * ring_buf){
@@ -33,7 +33,7 @@ int ring_buffer_insert(RING_BUFFER * ring_buf, DATA_BUF * png_buf){
         ring_buf->head = 0;
     }
 
-    ring_buf->tail = (ring_buf->tail + 1) % ring_buf->size;
+    ring_buf->tail = (ring_buf->tail + 1) % ring_buf->capacity;
     ring_buf->queue[ring_buf->tail] = *png_buf;
 
     return 0;
@@ -53,7 +53,7 @@ int ring_buffer_pop(RING_BUFFER * ring_buf, DATA_BUF * popped_dest){
         ring_buf->head = -1;
         ring_buf->tail = -1;
     }
-    ring_buf->head = (ring_buf->head + 1) % ring_buf->size;
+    ring_buf->head = (ring_buf->head + 1) % ring_buf->capacity;
 
     return 0;
 }

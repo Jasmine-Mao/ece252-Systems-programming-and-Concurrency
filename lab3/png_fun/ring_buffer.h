@@ -19,5 +19,11 @@ typedef struct ring_buffer {
     DATA_BUF * queue;
     int head;
     int tail;
-    int size;
+    int capacity;
 } RING_BUFFER;
+
+int ring_buffer_init(RING_BUFFER * ring_buf, int buffer_size);
+int ring_buffer_is_full(RING_BUFFER * ring_buf);
+int ring_buffer_is_empty(RING_BUFFER * ring_buf);
+int ring_buffer_insert(RING_BUFFER * ring_buf, DATA_BUF * png_buf);
+int ring_buffer_pop(RING_BUFFER * ring_buf, DATA_BUF * popped_dest);
