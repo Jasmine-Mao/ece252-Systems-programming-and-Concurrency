@@ -249,8 +249,16 @@ int run_processes(int producer_count, int consumer_count){
         for (int i = 0; i < child_count; i++){
             waitpid(children[i], &status, 0);
         }
+        shmctl(ring_buf_shmid, IPC_RMID, NULL);
+        shmctl(sem_items_shmid, IPC_RMID, NULL);
+        shmctl(sem_spaces_shmid, IPC_RMID, NULL);
+        shmctl(sem_lock_shmid, IPC_RMID, NULL);
+
         // Write all.png
         // Timing operations
+
+        shmctl(idat_buf_shmid, IPC_RMID, NULL);
+
     }
 
     return 0;
