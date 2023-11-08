@@ -14,12 +14,14 @@
 #include "ring_buffer.h"
 #include "paster2.h"
 
-#define URL_1           "http://ece252-1.uwaterloo.ca:2530/image?img="
-#define URL_2           "http://ece252-2.uwaterloo.ca:2530/image?img="
-#define URL_3           "http://ece252-3.uwaterloo.ca:2530/image?img="
-#define URL_IMAGE_SEG   "&part="
-#define ECE_252_HEADER  "X-Ece252-Fragment: "
-#define SEM_PROC        1
+#define URL_1 "http://ece252-1.uwaterloo.ca:2530/image?img="
+#define URL_2 "http://ece252-2.uwaterloo.ca:2530/image?img="
+#define URL_3 "http://ece252-3.uwaterloo.ca:2530/image?img="
+
+#define URL_IMAGE_SEG "&part="
+#define ECE_252_HEADER "X-Ece252-Fragment: "
+
+#define SEM_PROC 1
 
 int BUFFER_SIZE;
 int SLEEP_TIME;
@@ -37,14 +39,14 @@ RING_BUFFER * ring_buf;
 size_t data_write_callback(char* recv, size_t size, size_t nmemb, void *userdata){
     size_t real_size = size * nmemb;
 
-    DATA_BUF* strip_data = (DATA_BUF*)userdata;
-    if(size > 10000){
+    if(real_size > 10000){
+        printf("Received item exceeds 10000 bytes!");
         return CURLE_WRITE_ERROR;
     }
 
-    memcpy(strip_data->png_data + strip_data->size, recv, real_size);
-    strip_data->size += real_size;
-    strip_data->png_data[strip_data->size] = 0;
+    DATA_BUF* strip_data = (DATA_BUF*)userdata;
+    memcpy(strip_data->png_data, recv, real_size);
+    strip_data->size = real_size;
 
     return real_size;
 }
@@ -83,6 +85,8 @@ int consumer_protocol(RING_BUFFER *ring_buf){
         memcpy(&compressed_size, idat_holder->png_data + read_index, CHUNK_LEN_SIZE);
         compressed_size = ntohl(compressed_size);
 
+        printf("compressed size: %d", compressed_size);
+
         read_index += CHUNK_LEN_SIZE + CHUNK_TYPE_SIZE;
 
         u_int8_t* inflate_buffer = malloc(compressed_size);
@@ -104,11 +108,6 @@ int consumer_protocol(RING_BUFFER *ring_buf){
     free(idat_holder);
     return 0;
 }
-
-    /*
-    if ring buffer not full
-        insert into ring buff from strip data
-    */
 
 int producer_protocol(int process_number, int num_processes){
     /*----CURL SETUP----*/
