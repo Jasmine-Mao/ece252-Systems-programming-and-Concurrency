@@ -26,7 +26,7 @@ int SLEEP_TIME;
 int IMG_NUM;
 
 atomic_bool check_img[50];
-int num_fetched;
+int * num_fetched;
 
 sem_t * sem_items;
 sem_t * sem_spaces;
@@ -62,7 +62,7 @@ size_t header_write_callback(char* recv, size_t size, size_t nmemb, void* userda
 int consumer_protocol(RING_BUFFER *ring_buf){
     DATA_BUF* idat_holder = malloc(sizeof(DATA_BUF)); 
 
-    while (num_fetched != 50){
+    while (*num_fetched != 50){
 
         /*critical section: access image, clear queue slot, exit*/ 
         sem_wait(sem_items);
@@ -98,7 +98,7 @@ int consumer_protocol(RING_BUFFER *ring_buf){
         printf("stored idat\n");
         check_img[idat_holder->seq] = 1;
         free(inflate_buffer);
-        num_fetched++;
+        (*num_fetched)++;
     }
     
     free(idat_holder);
@@ -204,7 +204,7 @@ int run_processes(int producer_count, int consumer_count){
         abort();
     }
     ring_buffer_init(ring_buf, BUFFER_SIZE);
-    num_fetched = 0;
+    *num_fetched = 0;
 
     int sem_items_shmid = shmget(IPC_PRIVATE, sizeof(sem_t), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
     int sem_spaces_shmid = shmget(IPC_PRIVATE, sizeof(sem_t), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
