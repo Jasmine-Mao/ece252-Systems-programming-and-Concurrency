@@ -27,7 +27,7 @@ int BUFFER_SIZE;
 int SLEEP_TIME;
 int IMG_NUM;
 
-atomic_bool check_img[50];
+//atomic_bool check_img[50];
 int * num_fetched;
 
 sem_t * sem_items;
@@ -100,7 +100,7 @@ int consumer_protocol(RING_BUFFER *ring_buf){
         mem_inf(idat_data + store_index, &inf_size, idat_holder->png_data, compressed_size);
 
         printf("stored idat\n");
-        check_img[idat_holder->seq] = 1;
+        //check_img[idat_holder->seq] = 1;
         free(inflate_buffer);
         (*num_fetched)++;
     }
