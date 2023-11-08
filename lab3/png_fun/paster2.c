@@ -57,8 +57,7 @@ size_t data_write_callback(char* recv, size_t size, size_t nmemb, void *userdata
         printf("CURLED GARBAGE!!\n");
         return CURLE_WRITE_ERROR;
     }
-
-
+    free(header_bytes);
 
     DATA_BUF* strip_data = (DATA_BUF*)userdata;
     memcpy(strip_data->png_data, recv, real_size);
@@ -83,6 +82,7 @@ int consumer_protocol(RING_BUFFER *ring_buf){
     while (*num_processed < 50){
 
         /*critical section: access image, clear queue slot, exit*/ 
+        printf("(Consumer) I'm waiting :3\n");
         sem_wait(sem_items);
         sem_wait(sem_lock);
         printf("(Consumer) critical section begin:\n");
@@ -185,6 +185,7 @@ int producer_protocol(int process_number, int num_processes){
         res = curl_easy_perform(curl_handle);
 
         if((res == CURLE_OK)){
+            printf("(Producer) I'm waiting :3\n");
             sem_wait(sem_spaces);
             sem_wait(sem_lock);
             printf("(Producer) critical section begin:\n");
@@ -247,8 +248,9 @@ int run_processes(int producer_count, int consumer_count){
             children[i] = pid;
         }
         else if (pid == 0){
+            printf("Spawned producer child %d\n", i);
             producer_protocol(i, producer_count);
-            break;
+            return 0;
         }
         else{
             perror("fork");
@@ -262,8 +264,9 @@ int run_processes(int producer_count, int consumer_count){
             children[producer_count + i] = pid;
         }
         else if (pid == 0){
+            printf("Spawned consumer child %d\n", producer_count + i);
             consumer_protocol(ring_buf);
-            break;
+            return 0;
         }
         else{
             perror("fork");
