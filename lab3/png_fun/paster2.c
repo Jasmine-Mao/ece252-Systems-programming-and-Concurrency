@@ -46,6 +46,20 @@ size_t data_write_callback(char* recv, size_t size, size_t nmemb, void *userdata
         return CURLE_WRITE_ERROR;
     }
 
+    char* header_bytes = malloc(5);
+    memcpy(header_bytes, recv, 4);
+    header_bytes[4] = '\0';
+    //printf("(Producer) I curled a %s\n", header_bytes);
+
+    if ((header_bytes[1] != 0x50) ||
+        (header_bytes[2] != 0x4E) ||
+        (header_bytes[3] != 0x47)) {
+        printf("CURLED GARBAGE!!\n");
+        return CURLE_WRITE_ERROR;
+    }
+
+
+
     DATA_BUF* strip_data = (DATA_BUF*)userdata;
     memcpy(strip_data->png_data, recv, real_size);
     strip_data->size = real_size;
@@ -164,7 +178,7 @@ int producer_protocol(int process_number, int num_processes){
         curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, data_write_callback);
         curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, (void*)&strip_data);
 
-        curl_easy_setopt(curl_handle, CURLOPT_HEADER, header_write_callback);
+        curl_easy_setopt(curl_handle, CURLOPT_HEADERFUNCTION, header_write_callback);
         curl_easy_setopt(curl_handle, CURLOPT_HEADERDATA, (void*)&strip_data);
         curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, "libcurl-agent/1.0");
 
