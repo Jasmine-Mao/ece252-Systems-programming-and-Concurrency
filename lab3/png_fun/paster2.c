@@ -27,6 +27,7 @@ int IMG_NUM;
 
 atomic_bool check_img[50] = {0};
 int num_fetched = 0;
+// ^might need to be in shared memory so all processes can access and modify
 
 sem_t * sem_items;
 sem_t * sem_spaces;
@@ -58,51 +59,53 @@ size_t header_write_callback(char* recv, size_t size, size_t nmemb, void* userda
     return real_size;
 }
 
-int consumer_protocol(void* arg, int sleeptime){ //iman
+int consumer_protocol(void* arg){ //iman
+    // JASMINE - removed the sleep time arg since it's a global now :D
+
     //implement while loop somewhere, cond while num_fetched < number of segments
-    sem_t* access = (sem_t*)arg;
-    IMG_BUF idat_holder; //temp buffer
+    // sem_t* access = (sem_t*)arg;
+    /* IMG_BUF idat_holder; //temp buffer
     IMG_BUF original_img;
-    original_img.buf = malloc(10000); //max size of img
+    original_img.buf = malloc(10000); //max size of img */
+
+    DATA_BUF idat_holder;
+    idat_holder.max_size = 10000;
     
     while (num_fetched != 50){
-    idat_holder.buf = NULL;
-    idat_holder.seq = 0;
-    idat_holder.size = 0;
-    idat_holder.write_success = -1;
+    
+        sem_wait(sem_lock);
+        /*critical section: access image, clear queue slot, exit*/
+        //original_img.buf = image data //idat_holder will hold length of compressed idat
+        idat_holder.seq = 0; //seq number from buffer
+        sem_post(sem_lock);
 
-    sem_wait(access);
-    /*critical section: access image, clear queue slot, exit*/
-    //original_img.buf = image data //idat_holder will hold length of compressed idat
-    idat_holder.seq = 0; //seq number from buffer
-    sem_post(access);
+        usleep(SLEEP_TIME);
 
-    usleep(sleeptime);
+        if (!check_img[idat_holder.seq]){
+            /* extract idat */
+            int read_index = PNG_SIG_SIZE + IHDR_CHUNK_SIZE;
+            unsigned int size_buf = 0;
+            memcpy(&size_buf, idat_holder.png_data + read_index, CHUNK_LEN_SIZE);
+            size_buf = ntohl(size_buf);
 
-    if (!check_img[idat_holder.seq]){
-        /* extract idat */
-        int read_index = PNG_SIG_SIZE + IHDR_CHUNK_SIZE;
-        unsigned int size_buf = 0;
-        memcpy(&size_buf, original_img.buf + read_index, CHUNK_LEN_SIZE);
-        size_buf = ntohl(size_buf);
+            idat_holder.size = (size_t)size_buf;
 
-        idat_holder.size = (size_t)size_buf;
+            read_index += CHUNK_LEN_SIZE + CHUNK_TYPE_SIZE;
 
-        read_index += CHUNK_LEN_SIZE + CHUNK_TYPE_SIZE;
-        idat_holder.buf = malloc(idat_holder.size);
+            u_int8_t* inflate_buffer = malloc(idat_holder.size);
 
-        memcpy(idat_holder.buf, original_img.buf + read_index, idat_holder.size);
+            memcpy(inflate_buffer, idat_holder.png_data + read_index, idat_holder.size);
 
-        /* store idat */
-        int store_index = idat_holder.seq * STRIP_HEIGHT * (PNG_WIDTH * 4 + 1);
-        U64 inf_size;
-        mem_inf(idat_data + store_index, &inf_size, idat_holder.buf, idat_holder.size);
+            /* store idat */
+            int store_index = idat_holder.seq * STRIP_HEIGHT * (PNG_WIDTH * 4 + 1);
+            U64 inf_size;
+            mem_inf(idat_buf + store_index, &inf_size, idat_holder.png_data, idat_holder.size);
 
-        idat_holder.write_success = 0;
-        check_img[idat_holder.seq] = 1;
-        free(idat_holder.buf);
-        num_fetched++;
-    }
+            // idat_holder.write_success = 0;
+            check_img[idat_holder.seq] = 1;
+            free(inflate_buffer);
+            num_fetched++;
+        }
     }
     free(original_img.buf);
     return 0;
@@ -201,15 +204,12 @@ int producer_protocol(int process_number, int num_processes){
 
             // add to buffer
             
-
             sem_post(sem_lock);
             sem_post(sem_items);
 
             printf("out of crit sect\n");
+            process_number += num_processes;
         }
-
-        process_number += num_processes;
-
         free(seg);
     }
     curl_easy_cleanup(curl_handle);
