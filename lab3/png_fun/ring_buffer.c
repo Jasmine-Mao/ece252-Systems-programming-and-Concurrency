@@ -27,7 +27,6 @@ int ring_buffer_is_empty(RING_BUFFER * ring_buf){
 int ring_buffer_insert(RING_BUFFER * ring_buf, DATA_BUF * png_buf){
     if (ring_buf->head == -1){
         ring_buf->head = 0;
-        ring_buf->tail = 0;
     }
 
     ring_buf->tail = (ring_buf->tail + 1) % ring_buf->capacity;
