@@ -9,6 +9,7 @@
 #include <semaphore.h>
 #include <unistd.h>
 
+#include "png_utils/zutil.h"
 #include "png_utils/cat_png.h"
 #include "ring_buffer.h"
 #include "paster2.h"
@@ -23,6 +24,9 @@
 int BUFFER_SIZE;
 int SLEEP_TIME;
 int IMG_NUM;
+
+atomic_bool check_img[50] = {0};
+int num_fetched = 0;
 
 sem_t * sem_items;
 sem_t * sem_spaces;
@@ -54,10 +58,60 @@ size_t header_write_callback(char* recv, size_t size, size_t nmemb, void* userda
     return real_size;
 }
 
-int consumer_protocol(){ //iman
+int consumer_protocol(void* arg, int sleeptime){ //iman
+    //implement while loop somewhere, cond while num_fetched < number of segments
+    sem_t* access = (sem_t*)arg;
+    IMG_BUF idat_holder; //temp buffer
+    IMG_BUF original_img;
+    original_img.buf = malloc(10000); //max size of img
+    
+    while (num_fetched != 50){
+    idat_holder.buf = NULL;
+    idat_holder.seq = 0;
+    idat_holder.size = 0;
+    idat_holder.write_success = -1;
+
+    sem_wait(access);
+    /*critical section: access image, clear queue slot, exit*/
+    //original_img.buf = image data //idat_holder will hold length of compressed idat
+    idat_holder.seq = 0; //seq number from buffer
+    sem_post(access);
+
+    usleep(sleeptime);
+
+    if (!check_img[idat_holder.seq]){
+        /* extract idat */
+        int read_index = PNG_SIG_SIZE + IHDR_CHUNK_SIZE;
+        unsigned int size_buf = 0;
+        memcpy(&size_buf, original_img.buf + read_index, CHUNK_LEN_SIZE);
+        size_buf = ntohl(size_buf);
+
+        idat_holder.size = (size_t)size_buf;
+
+        read_index += CHUNK_LEN_SIZE + CHUNK_TYPE_SIZE;
+        idat_holder.buf = malloc(idat_holder.size);
+
+        memcpy(idat_holder.buf, original_img.buf + read_index, idat_holder.size);
+
+        /* store idat */
+        int store_index = idat_holder.seq * STRIP_HEIGHT * (PNG_WIDTH * 4 + 1);
+        U64 inf_size;
+        mem_inf(idat_data + store_index, &inf_size, idat_holder.buf, idat_holder.size);
+
+        idat_holder.write_success = 0;
+        check_img[idat_holder.seq] = 1;
+        free(idat_holder.buf);
+        num_fetched++;
+    }
+    }
+    free(original_img.buf);
+    return 0;
+}
     /*steps*/
     /*1. access shared memory (buffer)*/
     /*2. fetch image segments in order*/
+        //set up a structure (array etc. check lab 2) to put image data fetched from buffer into -- consumers get image segment, identify image segment number, and put into respective memory slot
+        //once all image segments have been found, continue onto concatenate
     /*3. inflate and concatenate all*/
     /*4. deflate once all have been concatenated*/
 
@@ -68,8 +122,20 @@ int consumer_protocol(){ //iman
 
     // critical section somewhere here
 
-    return 0;
-}
+
+    /*
+    take the current queued item, (head of queue)
+    this item is a png binary
+        find idat_length
+        create temp buffer of size idat_length
+        store idat data into this buffer
+        inflate
+        store into global shared memory, in the proper index (grabbed from header in producer)
+        
+    curl easy perform
+    147 in paster.c
+    stored index
+    */
 
 int producer_protocol(int process_number, int num_processes){
     /*----CURL SETUP----*/
@@ -238,7 +304,7 @@ int main(int argc, char * argv[]){
     // ./paster2 B P C X N
 
     // P, C passed to run_processes function
-    // B, X, N are stored in global variables BUFFER_SIZE, SLEEP_TIME, IMG_NUM
+    // B, X, N are set into global variables for buffer size, sleep time, and image number.;
     if (argc != 6){
         fprintf(stderr, "Incorrect arguments!\n");
         return -1;
