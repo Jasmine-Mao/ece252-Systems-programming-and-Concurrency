@@ -59,21 +59,28 @@ size_t header_write_callback(char* recv, size_t size, size_t nmemb, void* userda
     return real_size;
 }
 
-int consumer_protocol(RING_BUFFER *ring_buf){ //iman
+int consumer_protocol(RING_BUFFER *ring_buf){ //iman -- do we need to pass ring buff as a parameter or is there another way to do this
     // JASMINE - removed the sleep time arg since it's a global now :D
-    DATA_BUF* idat_holder = NULL;    
+    DATA_BUF* idat_holder = malloc(sizeof(DATA_BUF));
+    idat_holder->seq = 51;    
 
     while (num_fetched != 50){
 
         /*critical section: access image, clear queue slot, exit*/  
         sem_wait(sem_lock);
+        //printf("in crit sect\n");
         if (ring_buffer_is_empty(ring_buf) !=0){
             ring_buffer_pop(ring_buf, idat_holder);
         }
         sem_post(sem_lock);
+       // printf("out crit sect\n");
 
         usleep(SLEEP_TIME);
+        //printf("done sleep\n");
+        //printf("img seq: %d\n", idat_holder->seq);
 
+        if (idat_holder->seq != 51){
+            //printf("not null\n");
         if (!check_img[idat_holder->seq]){
             /* extract idat */
             int read_index = PNG_SIG_SIZE + IHDR_CHUNK_SIZE;
@@ -89,19 +96,27 @@ int consumer_protocol(RING_BUFFER *ring_buf){ //iman
 
             memcpy(inflate_buffer, idat_holder->png_data + read_index, idat_holder->size);
 
+            printf("extracted idat\n");
             /* store idat */
             int store_index = idat_holder->seq * STRIP_HEIGHT * (PNG_WIDTH * 4 + 1);
             U64 inf_size;
             mem_inf(idat_data + store_index, &inf_size, idat_holder->png_data, idat_holder->size);
 
+            printf("stored idat\n");
             check_img[idat_holder->seq] = 1;
             free(inflate_buffer);
             num_fetched++;
         }
     }
+    }
     free(idat_holder);
     return 0;
 }
+
+    /*
+    if ring buffer not full
+        insert into ring buff from strip data
+    */
 
 int producer_protocol(int process_number, int num_processes){
     /*----CURL SETUP----*/
@@ -165,7 +180,7 @@ int producer_protocol(int process_number, int num_processes){
             sem_wait(sem_spaces);
             sem_wait(sem_lock);
 
-            // add to buffer
+            // add to buffer          
             
             sem_post(sem_lock);
             sem_post(sem_items);
