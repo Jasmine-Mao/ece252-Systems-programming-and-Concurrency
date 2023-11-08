@@ -262,9 +262,13 @@ int run_processes(int producer_count, int consumer_count){
 
         // Write all.png
         // Timing operations
-
+        int result = concatenate_png();
+        if (result != 0){
+            printf("catpng failure \n");
+        }
+    
         shmctl(idat_buf_shmid, IPC_RMID, NULL);
-
+        curl_global_cleanup();
     }
 
     return 0;
