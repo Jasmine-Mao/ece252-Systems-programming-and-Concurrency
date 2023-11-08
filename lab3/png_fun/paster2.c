@@ -99,6 +99,7 @@ int consumer_protocol(RING_BUFFER *ring_buf){ //iman
             num_fetched++;
         }
     }
+    free(idat_holder);
     return 0;
 }
 
