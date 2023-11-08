@@ -69,11 +69,13 @@ int consumer_protocol(RING_BUFFER *ring_buf){
         /*critical section: access image, clear queue slot, exit*/ 
         sem_wait(sem_items);
         sem_wait(sem_lock);
+        printf("(Consumer) critical section begin:\n");
         //printf("in crit sect\n");
         ring_buffer_pop(ring_buf, idat_holder);
 
         sem_post(sem_lock);
         sem_post(sem_spaces);
+        printf("(Consumer) out of crit sect!\n");
        // printf("out crit sect\n");
 
         usleep(SLEEP_TIME);
@@ -85,7 +87,7 @@ int consumer_protocol(RING_BUFFER *ring_buf){
         memcpy(&compressed_size, idat_holder->png_data + read_index, CHUNK_LEN_SIZE);
         compressed_size = ntohl(compressed_size);
 
-        printf("compressed size: %d", compressed_size);
+        printf("compressed size: %d\n", compressed_size);
 
         read_index += CHUNK_LEN_SIZE + CHUNK_TYPE_SIZE;
 
@@ -167,16 +169,16 @@ int producer_protocol(int process_number, int num_processes){
         res = curl_easy_perform(curl_handle);
 
         if((res == CURLE_OK)){
-            printf("(Producer) critical section begin:\n");
             sem_wait(sem_spaces);
             sem_wait(sem_lock);
+            printf("(Producer) critical section begin:\n");
 
             ring_buffer_insert(ring_buf, &strip_data);
             
             sem_post(sem_lock);
             sem_post(sem_items);
 
-            printf("out of crit sect!\n");
+            printf("(Producer) out of crit sect!\n");
             process_number += num_processes;
         }
         free(seg);

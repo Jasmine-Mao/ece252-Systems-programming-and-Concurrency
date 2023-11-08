@@ -24,13 +24,9 @@ int ring_buffer_is_empty(RING_BUFFER * ring_buf){
 
 // ENQUEUE PNG DATA
 int ring_buffer_insert(RING_BUFFER * ring_buf, DATA_BUF * png_buf){
-    if (ring_buffer_is_full(ring_buf)){
-        printf("Attempted insert while ring buffer is full. Something has gone wrong! \n");
-        return -1;
-    }
-
     if (ring_buf->head == -1){
         ring_buf->head = 0;
+        ring_buf->tail = 0;
     }
 
     ring_buf->tail = (ring_buf->tail + 1) % ring_buf->capacity;
