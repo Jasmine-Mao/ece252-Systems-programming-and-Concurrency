@@ -45,27 +45,10 @@ u_int8_t * idat_data;
 size_t data_write_callback(char* recv, size_t size, size_t nmemb, void *userdata){
     size_t real_size = size * nmemb;
 
-    if(real_size > 10000){
-        printf("Received item exceeds 10000 bytes!");
-        return CURLE_WRITE_ERROR;
-    }
-
-    char* header_bytes = malloc(5);
-    memcpy(header_bytes, recv, 4);
-    header_bytes[4] = '\0';
-    //printf("(Producer) I curled a %s\n", header_bytes);
-
-    if ((header_bytes[1] != 0x50) ||
-        (header_bytes[2] != 0x4E) ||
-        (header_bytes[3] != 0x47)) {
-        //printf("CURLED GARBAGE!!\n");
-        return CURLE_WRITE_ERROR;
-    }
-    free(header_bytes);
-
     DATA_BUF* strip_data = (DATA_BUF*)userdata;
-    memcpy(strip_data->png_data, recv, real_size);
-    strip_data->size = real_size;
+    
+    memcpy(strip_data->png_data + strip_data->size, recv, real_size);
+    strip_data->size += real_size;
 
     return real_size;
 }
