@@ -22,6 +22,13 @@ typedef struct ring_buffer {
     int capacity;
 } RING_BUFFER;
 
+typedef struct img_buf{
+    U8* buf;
+    size_t size;
+    int write_success;
+    int seq;
+} IMG_BUF;
+
 int ring_buffer_init(RING_BUFFER * ring_buf, int buffer_size);
 int ring_buffer_is_full(RING_BUFFER * ring_buf);
 int ring_buffer_is_empty(RING_BUFFER * ring_buf);
