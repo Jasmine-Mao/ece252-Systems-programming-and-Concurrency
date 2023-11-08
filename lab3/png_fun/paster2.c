@@ -28,7 +28,9 @@ int SLEEP_TIME;
 int IMG_NUM;
 
 //atomic_bool check_img[50];
-int * num_fetched;
+int * num_downloaded;
+int * num_processed;
+
 
 sem_t * sem_items;
 sem_t * sem_spaces;
@@ -64,7 +66,7 @@ size_t header_write_callback(char* recv, size_t size, size_t nmemb, void* userda
 int consumer_protocol(RING_BUFFER *ring_buf){
     DATA_BUF* idat_holder = malloc(sizeof(DATA_BUF)); 
 
-    while (*num_fetched != 50){
+    while (*num_processed < 50){
 
         /*critical section: access image, clear queue slot, exit*/ 
         sem_wait(sem_items);
@@ -104,7 +106,7 @@ int consumer_protocol(RING_BUFFER *ring_buf){
         printf("stored idat\n");
         //check_img[idat_holder->seq] = 1;
         free(inflate_buffer);
-        (*num_fetched)++;
+        (*num_processed)++;
     }
     
     free(idat_holder);
@@ -144,7 +146,7 @@ int producer_protocol(int process_number, int num_processes){
     strcat(url, URL_IMAGE_SEG);
     /*----END----*/
     
-    while(process_number < 50){
+    while(*num_downloaded < 50){
         char temp[256];
         strcpy(temp, url);
 
@@ -180,6 +182,7 @@ int producer_protocol(int process_number, int num_processes){
 
             printf("(Producer) out of crit sect!\n");
             process_number += num_processes;
+            (*num_downloaded)++;
         }
         free(seg);
     }
@@ -191,21 +194,24 @@ int run_processes(int producer_count, int consumer_count){
     int ring_buf_size = sizeof(RING_BUFFER) + (sizeof(DATA_BUF) * BUFFER_SIZE);
     int ring_buf_shmid = shmget(IPC_PRIVATE, ring_buf_size, IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
     int idat_buf_shmid = shmget(IPC_PRIVATE, INFLATED_DATA_SIZE, IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
-    int num_fetched_shmid = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
-    if (ring_buf_shmid == -1 || idat_buf_shmid == -1 || num_fetched_shmid == -1){
+    int num_processed_shmid = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
+    int num_downloaded_shmid = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
+    if (ring_buf_shmid == -1 || idat_buf_shmid == -1 || num_processed_shmid == -1 || num_downloaded_shmid == -1){
         perror("shmget");
         abort();
     }
 
     ring_buf = shmat(ring_buf_shmid, NULL, 0);
     idat_data = shmat(idat_buf_shmid, NULL, 0);
-    num_fetched = shmat(num_fetched_shmid, NULL, 0);
+    num_processed = shmat(num_processed_shmid, NULL, 0);
+    num_downloaded = shmat(num_downloaded_shmid, NULL, 0);
     if ( ring_buf == (void *) -1 || idat_data == (void *) -1) {
         perror("shmat");
         abort();
     }
     ring_buffer_init(ring_buf, BUFFER_SIZE);
-    *num_fetched = 0;
+    *num_processed = 0;
+    *num_downloaded = 0;
 
     int sem_items_shmid = shmget(IPC_PRIVATE, sizeof(sem_t), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
     int sem_spaces_shmid = shmget(IPC_PRIVATE, sizeof(sem_t), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
