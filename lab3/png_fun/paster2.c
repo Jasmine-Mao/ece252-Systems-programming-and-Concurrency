@@ -250,7 +250,7 @@ int run_processes(int producer_count, int consumer_count){
         else if (pid == 0){
             printf("Spawned producer child %d\n", i);
             producer_protocol(i, producer_count);
-            exit(1);
+            exit(3);
         }
         else{
             perror("fork");
@@ -266,7 +266,7 @@ int run_processes(int producer_count, int consumer_count){
         else if (pid == 0){
             printf("Spawned consumer child %d\n", producer_count + i);
             consumer_protocol(ring_buf);
-            exit(1);
+            exit(3);
         }
         else{
             perror("fork");
