@@ -15,7 +15,7 @@
 #define INFLATED_DATA_SIZE (PNG_HEIGHT * (PNG_WIDTH * 4 + 1) )
 
 /* Global container to store inflated idat data */
-u_int8_t idat_data[INFLATED_DATA_SIZE];
+u_int8_t * idat_data;
 
 /** @brief Write PNG data to all.png
  *
