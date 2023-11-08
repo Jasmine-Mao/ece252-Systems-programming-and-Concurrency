@@ -174,7 +174,7 @@ int producer_protocol(int process_number, int num_processes){
             sem_wait(sem_spaces);
             sem_wait(sem_lock);
 
-            // add to buffer    
+            ring_buffer_insert(ring_buf, &strip_data);
             
             sem_post(sem_lock);
             sem_post(sem_items);
