@@ -51,7 +51,7 @@ int ring_buffer_pop(RING_BUFFER * ring_buf, DATA_BUF * popped_dest){
     memcpy(idat_type, popped_dest->png_data + 37, 4);
     idat_type[4] = '\0';
 
-    printf("Let's check the type.......%s\n", idat_type);
+    //printf("Let's check the type.......%s\n", idat_type);
     free(idat_type);
 
     if (ring_buf->head == ring_buf->tail){
@@ -62,4 +62,3 @@ int ring_buffer_pop(RING_BUFFER * ring_buf, DATA_BUF * popped_dest){
 
     return 0;
 }
-

@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <arpa/inet.h>
 #include <curl/curl.h>
 #include <semaphore.h>
 #include <unistd.h>
@@ -28,12 +29,12 @@ int SLEEP_TIME;
 int IMG_NUM;
 
 //atomic_bool check_img[50];
-int * num_downloaded;
 int * num_processed;
 
 sem_t * sem_items;
 sem_t * sem_spaces;
 sem_t * sem_lock;
+sem_t * consumer_write_lock;
 
 RING_BUFFER * ring_buf;
 u_int8_t * idat_data;
@@ -54,7 +55,7 @@ size_t data_write_callback(char* recv, size_t size, size_t nmemb, void *userdata
     if ((header_bytes[1] != 0x50) ||
         (header_bytes[2] != 0x4E) ||
         (header_bytes[3] != 0x47)) {
-        printf("CURLED GARBAGE!!\n");
+        //printf("CURLED GARBAGE!!\n");
         return CURLE_WRITE_ERROR;
     }
     free(header_bytes);
@@ -103,21 +104,28 @@ int consumer_protocol(RING_BUFFER *ring_buf){
         memcpy(&compressed_size, idat_holder->png_data + read_index, CHUNK_LEN_SIZE);
         compressed_size = ntohl(compressed_size);
 
-        printf("compressed size: %d\n", compressed_size);
+        //printf("compressed size: %d\n", compressed_size);
 
         read_index += CHUNK_LEN_SIZE + CHUNK_TYPE_SIZE;
 
         u_int8_t* inflate_buffer = malloc(compressed_size);
 
         memcpy(inflate_buffer, idat_holder->png_data + read_index, compressed_size);
+        // printf("Png data: %s \n", idat_holder->png_data);
+        // for (int i = 0; i < compressed_size; i++){
+        //     printf("%X", idat_holder->png_data[i]);
+        // }
 
-        printf("extracted idat\n");
+        //printf("extracted idat\n");
             /* store idat */
         int store_index = idat_holder->seq * STRIP_HEIGHT * (PNG_WIDTH * 4 + 1);
         U64 inf_size;
-        mem_inf(idat_data + store_index, &inf_size, idat_holder->png_data, compressed_size);
 
-        printf("stored idat\n");
+        sem_wait(consumer_write_lock);
+        mem_inf(idat_data + store_index, &inf_size, inflate_buffer, compressed_size);
+        sem_post(consumer_write_lock);
+
+        //printf("stored idat\n");
         //check_img[idat_holder->seq] = 1;
         free(inflate_buffer);
         (*num_processed)++;
@@ -185,19 +193,18 @@ int producer_protocol(int process_number, int num_processes){
         res = curl_easy_perform(curl_handle);
 
         if((res == CURLE_OK)){
-            printf("(Producer) I'm waiting :3\n");
+            //printf("(Producer) I'm waiting :3\n");
             sem_wait(sem_spaces);
             sem_wait(sem_lock);
-            printf("(Producer) critical section begin:\n");
+            //printf("(Producer) critical section begin:\n");
 
             ring_buffer_insert(ring_buf, &strip_data);
             
             sem_post(sem_lock);
             sem_post(sem_items);
 
-            printf("(Producer) out of crit sect!\n");
+            //printf("(Producer) out of crit sect!\n");
             process_number += num_processes;
-            (*num_downloaded)++;
         }
         free(seg);
     }
@@ -210,8 +217,7 @@ int run_processes(int producer_count, int consumer_count){
     int ring_buf_shmid = shmget(IPC_PRIVATE, ring_buf_size, IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
     int idat_buf_shmid = shmget(IPC_PRIVATE, INFLATED_DATA_SIZE, IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
     int num_processed_shmid = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
-    int num_downloaded_shmid = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
-    if (ring_buf_shmid == -1 || idat_buf_shmid == -1 || num_processed_shmid == -1 || num_downloaded_shmid == -1){
+    if (ring_buf_shmid == -1 || idat_buf_shmid == -1 || num_processed_shmid == -1){
         perror("shmget");
         abort();
     }
@@ -219,24 +225,25 @@ int run_processes(int producer_count, int consumer_count){
     ring_buf = shmat(ring_buf_shmid, NULL, 0);
     idat_data = shmat(idat_buf_shmid, NULL, 0);
     num_processed = shmat(num_processed_shmid, NULL, 0);
-    num_downloaded = shmat(num_downloaded_shmid, NULL, 0);
     if ( ring_buf == (void *) -1 || idat_data == (void *) -1) {
         perror("shmat");
         abort();
     }
     ring_buffer_init(ring_buf, BUFFER_SIZE);
     *num_processed = 0;
-    *num_downloaded = 0;
 
     int sem_items_shmid = shmget(IPC_PRIVATE, sizeof(sem_t), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
     int sem_spaces_shmid = shmget(IPC_PRIVATE, sizeof(sem_t), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
     int sem_lock_shmid = shmget(IPC_PRIVATE, sizeof(sem_t), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
+    int consumer_lock_shmid = shmget(IPC_PRIVATE, sizeof(sem_t), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
     sem_items = shmat(sem_items_shmid, NULL, 0);
     sem_spaces = shmat(sem_spaces_shmid, NULL, 0);
     sem_lock = shmat(sem_lock_shmid, NULL, 0);
+    consumer_write_lock = shmat(consumer_lock_shmid, NULL, 0);
     sem_init(sem_items, SEM_PROC, 0);
     sem_init(sem_spaces, SEM_PROC, BUFFER_SIZE);
     sem_init(sem_lock, SEM_PROC, 1);
+    sem_init(consumer_write_lock, SEM_PROC, 1);
 
     int child_count = producer_count + consumer_count;
     pid_t pid = 0;
@@ -248,7 +255,7 @@ int run_processes(int producer_count, int consumer_count){
             children[i] = pid;
         }
         else if (pid == 0){
-            printf("Spawned producer child %d\n", i);
+            //printf("Spawned producer child %d\n", i);
             producer_protocol(i, producer_count);
             exit(EXIT_SUCCESS);
         }
@@ -264,7 +271,7 @@ int run_processes(int producer_count, int consumer_count){
             children[producer_count + i] = pid;
         }
         else if (pid == 0){
-            printf("Spawned consumer child %d\n", producer_count + i);
+            //printf("Spawned consumer child %d\n", producer_count + i);
             consumer_protocol(ring_buf);
             exit(EXIT_SUCCESS);
         }
@@ -280,6 +287,9 @@ int run_processes(int producer_count, int consumer_count){
         for (int i = 0; i < child_count; i++){
             waitpid(children[i], &status, 0);
         }
+        sem_destroy(sem_items);
+        sem_destroy(sem_spaces);
+        sem_destroy(sem_lock);
         shmctl(ring_buf_shmid, IPC_RMID, NULL);
         shmctl(sem_items_shmid, IPC_RMID, NULL);
         shmctl(sem_spaces_shmid, IPC_RMID, NULL);

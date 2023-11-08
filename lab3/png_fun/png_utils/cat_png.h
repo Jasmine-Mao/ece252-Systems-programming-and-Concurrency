@@ -34,7 +34,7 @@ size_t concatenate_idat(const char *fpath, U8 *idat, size_t current_idat_end);
 /** @brief Perform PNG concatenation
  *  @return 0 if success, -1 otherwise
  */
-int concatenate_png();
+int concatenate_png(u_int8_t * idat_data);
 
 /** @brief Create PNG IHDR chunk for a 400 x 300 image.
  *
