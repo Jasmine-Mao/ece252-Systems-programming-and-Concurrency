@@ -10,6 +10,9 @@
 #include <semaphore.h>
 #include <unistd.h>
 
+#include <time.h>
+#include <sys/time.h>
+
 #include "png_utils/zutil.h"
 #include "png_utils/cat_png.h"
 #include "ring_buffer.h"
@@ -77,23 +80,25 @@ size_t header_write_callback(char* recv, size_t size, size_t nmemb, void* userda
     return real_size;
 }
 
-int consumer_protocol(RING_BUFFER *ring_buf){
+int consumer_protocol(int i, int consumer_count, RING_BUFFER *ring_buf){
     DATA_BUF* idat_holder = malloc(sizeof(DATA_BUF)); 
 
     while (*num_processed < 50){
-
+        if (*num_processed + consumer_count > 50){
+            break;
+        }
         /*critical section: access image, clear queue slot, exit*/ 
-        printf("(Consumer) I'm waiting :3\n");
+        //printf("(Consumer %d) I'm waiting :3\n", i);
         sem_wait(sem_items);
         sem_wait(sem_lock);
-        printf("(Consumer) critical section begin:\n");
+        //printf("(Consumer %d) critical section begin:\n", i);
         //printf("in crit sect\n");
         ring_buffer_pop(ring_buf, idat_holder);
 
         sem_post(sem_lock);
         sem_post(sem_spaces);
-        printf("(Consumer) out of crit sect!\n");
-       // printf("out crit sect\n");
+        //printf("(Consumer %d) out of crit sect!\n", i);
+        // printf("out crit sect\n");
 
         usleep(SLEEP_TIME);
         //printf("done sleep\n");
@@ -272,7 +277,7 @@ int run_processes(int producer_count, int consumer_count){
         }
         else if (pid == 0){
             //printf("Spawned consumer child %d\n", producer_count + i);
-            consumer_protocol(ring_buf);
+            consumer_protocol(i, consumer_count, ring_buf);
             exit(EXIT_SUCCESS);
         }
         else{
@@ -329,7 +334,23 @@ int main(int argc, char * argv[]){
 
     curl_global_init(CURL_GLOBAL_DEFAULT);
 
+    double times[2];
+    struct timeval tv;
+    if (gettimeofday(&tv, NULL) != 0) {
+        perror("gettimeofday");
+        abort();
+    }
+    times[0] = (tv.tv_sec) + tv.tv_usec/1000000.;
+
     run_processes(p, c);
+
+    if (gettimeofday(&tv, NULL) != 0) {
+        perror("gettimeofday");
+        abort();
+    }
+    times[1] = (tv.tv_sec) + tv.tv_usec/1000000.;
+    printf("paster2 execution time: %.6lf seconds\n",  times[1] - times[0]);
+
 
     return 0;
 }
