@@ -9,7 +9,11 @@ PASTER_OBJS = $(SRC_DIR)/paster2.o $(SRC_DIR)/ring_buffer.o $(UTILS_DIR)/cat_png
 all: paster2
 
 paster2: $(PASTER_OBJS)
+<<<<<<< HEAD
 	$(CC) $(CFLAGS) -o paster2 $(PASTER_OBJS) -lcurl -lz -lpthread -lrt
+=======
+	$(CC) $(CFLAGS) -o paster2 $(PASTER_OBJS) -lcurl -lz -pthread
+>>>>>>> b1d53b30372fc43d6ab87d21bc3b5fa45c9e8172
 
 .c.o:
 	$(CC) $(CFLAGS) -c $< -o $@

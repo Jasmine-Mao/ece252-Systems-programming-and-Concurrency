@@ -17,12 +17,14 @@
 #include "ring_buffer.h"
 #include "paster2.h"
 
-#define URL_1           "http://ece252-1.uwaterloo.ca:2520/image?img="
-#define URL_2           "http://ece252-2.uwaterloo.ca:2520/image?img="
-#define URL_3           "http://ece252-3.uwaterloo.ca:2520/image?img="
+#define URL_1           "http://ece252-1.uwaterloo.ca:2530/image?img="
+#define URL_2           "http://ece252-2.uwaterloo.ca:2530/image?img="
+#define URL_3           "http://ece252-3.uwaterloo.ca:2530/image?img="
 #define URL_IMAGE_SEG   "&part="
 
 #define SEM_PROC 1
+#define ECE_252_HEADER  "X-Ece252-Fragment: "
+#define SEM_PROC        1
 
 int BUFFER_SIZE;
 int SLEEP_TIME;
@@ -31,7 +33,11 @@ int IMG_NUM;
 atomic_bool check_img[50] = {false};
 int num_fetched = 0;
 
-/*ASK ABOUT WRITE CALL BACK*/
+sem_t * sem_items;
+sem_t * sem_spaces;
+sem_t * sem_lock;
+
+
 size_t data_write_callback(char* recv, size_t size, size_t nmemb, void *userdata){
     size_t real_size = size * nmemb;
 
@@ -47,12 +53,15 @@ size_t data_write_callback(char* recv, size_t size, size_t nmemb, void *userdata
     return real_size;
 }
 
-// likely we still want a curl header and data callback function, but the data one will use the ENTIRE PNG
-// curl header function
-// curl data function
-// queue implementation 
-    // struct typedef blah blah blad
-    // ask chat gpt or steal from stack overflow
+size_t header_write_callback(char* recv, size_t size, size_t nmemb, void* userdata){
+    size_t real_size = size * nmemb;
+    DATA_BUF* strip_data = userdata;
+
+    if(real_size > strlen(ECE_252_HEADER) && strncmp(recv, ECE_252_HEADER, strlen(ECE_252_HEADER)) == 0){
+        strip_data->seq = atoi(recv + strlen(ECE_252_HEADER));
+    }
+    return real_size;
+}
 
 int consumer_protocol(void* arg, int sleeptime){ //iman
     //implement while loop somewhere, cond while num_fetched < number of segments
@@ -178,6 +187,7 @@ int producer_protocol(int process_number, int num_processes){ //does this need t
     else if(server_number == 0){
         strcpy(url, URL_3);
     }
+    
     char* image_num = malloc(sizeof(int));
     sprintf(image_num, "%d", IMG_NUM);
     strcat(url, image_num);
@@ -203,10 +213,11 @@ int producer_protocol(int process_number, int num_processes){ //does this need t
         curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, data_write_callback);
         curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, (void*)&strip_data);
 
+        curl_easy_setopt(curl_handle, CURLOPT_HEADER, header_write_callback);
+        curl_easy_setopt(curl_handle, CURLOPT_HEADERDATA, (void*)&strip_data);
         curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, "libcurl-agent/1.0");
 
         res = curl_easy_perform(curl_handle);
-        char fname[256];
 
         if((res == CURLE_OK)){
             printf("made it\n");
@@ -214,7 +225,7 @@ int producer_protocol(int process_number, int num_processes){ //does this need t
             write_file(fname, strip_data.png_data, strip_data.size);
         }
 
-        process_number = process_number + num_processes;
+        process_number += num_processes;
 
         free(seg);
 
@@ -253,9 +264,12 @@ int run_processes(int producer_count, int consumer_count){
     int sem_items_shmid = shmget(IPC_PRIVATE, sizeof(sem_t), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
     int sem_spaces_shmid = shmget(IPC_PRIVATE, sizeof(sem_t), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
     int sem_lock_shmid = shmget(IPC_PRIVATE, sizeof(sem_t), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
-    sem_t * sem_items = shmat(sem_items_shmid, NULL, 0);
-    sem_t * sem_spaces = shmat(sem_spaces_shmid, NULL, 0);
-    sem_t * sem_lock = shmat(sem_lock_shmid, NULL, 0);
+    sem_items = shmat(sem_items_shmid, NULL, 0);
+    sem_spaces = shmat(sem_spaces_shmid, NULL, 0);
+    sem_lock = shmat(sem_lock_shmid, NULL, 0);
+    sem_init(sem_items, SEM_PROC, 0);
+    sem_init(sem_spaces, SEM_PROC, BUFFER_SIZE);
+    sem_init(sem_lock, SEM_PROC, 1);
 
     int child_count = producer_count + consumer_count;
     pid_t pid = 0;
@@ -297,8 +311,16 @@ int run_processes(int producer_count, int consumer_count){
         for (int i = 0; i < child_count; i++){
             waitpid(children[i], &status, 0);
         }
+        shmctl(ring_buf_shmid, IPC_RMID, NULL);
+        shmctl(sem_items_shmid, IPC_RMID, NULL);
+        shmctl(sem_spaces_shmid, IPC_RMID, NULL);
+        shmctl(sem_lock_shmid, IPC_RMID, NULL);
+
         // Write all.png
         // Timing operations
+
+        shmctl(idat_buf_shmid, IPC_RMID, NULL);
+
     }
 
     return 0;
@@ -307,6 +329,8 @@ int run_processes(int producer_count, int consumer_count){
 
 int main(int argc, char * argv[]){
     // PARSE ARGS:
+    // ./paster2 B P C X N
+
     // P, C passed to run_processes function
     // B, X, N are set into global variables for buffer size, sleep time, and image number.;
     if (argc != 6){
