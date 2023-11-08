@@ -79,32 +79,28 @@ int consumer_protocol(RING_BUFFER *ring_buf){
         usleep(SLEEP_TIME);
         //printf("done sleep\n");
         //printf("img seq: %d\n", idat_holder->seq)
-
-            //printf("not null\n");
-        if (!check_img[idat_holder->seq]){
             /* extract idat */
-            int read_index = PNG_SIG_SIZE + IHDR_CHUNK_SIZE;
-            unsigned int compressed_size = 0;
-            memcpy(&compressed_size, idat_holder->png_data + read_index, CHUNK_LEN_SIZE);
-            compressed_size = ntohl(compressed_size);
+        int read_index = PNG_SIG_SIZE + IHDR_CHUNK_SIZE;
+        unsigned int compressed_size = 0;
+        memcpy(&compressed_size, idat_holder->png_data + read_index, CHUNK_LEN_SIZE);
+        compressed_size = ntohl(compressed_size);
 
-            read_index += CHUNK_LEN_SIZE + CHUNK_TYPE_SIZE;
+        read_index += CHUNK_LEN_SIZE + CHUNK_TYPE_SIZE;
 
-            u_int8_t* inflate_buffer = malloc(compressed_size);
+        u_int8_t* inflate_buffer = malloc(compressed_size);
 
-            memcpy(inflate_buffer, idat_holder->png_data + read_index, compressed_size);
+        memcpy(inflate_buffer, idat_holder->png_data + read_index, compressed_size);
 
-            printf("extracted idat\n");
+        printf("extracted idat\n");
             /* store idat */
-            int store_index = idat_holder->seq * STRIP_HEIGHT * (PNG_WIDTH * 4 + 1);
-            U64 inf_size;
-            mem_inf(idat_data + store_index, &inf_size, idat_holder->png_data, compressed_size);
+        int store_index = idat_holder->seq * STRIP_HEIGHT * (PNG_WIDTH * 4 + 1);
+        U64 inf_size;
+        mem_inf(idat_data + store_index, &inf_size, idat_holder->png_data, compressed_size);
 
-            printf("stored idat\n");
-            check_img[idat_holder->seq] = 1;
-            free(inflate_buffer);
-            num_fetched++;
-        }
+        printf("stored idat\n");
+        check_img[idat_holder->seq] = 1;
+        free(inflate_buffer);
+        num_fetched++;
     }
     
     free(idat_holder);
