@@ -26,8 +26,7 @@ int SLEEP_TIME;
 int IMG_NUM;
 
 atomic_bool check_img[50];
-int num_fetched = 0;
-// ^might need to be in shared memory so all processes can access and modify
+int num_fetched;
 
 sem_t * sem_items;
 sem_t * sem_spaces;
@@ -69,9 +68,8 @@ int consumer_protocol(RING_BUFFER *ring_buf){
         sem_wait(sem_items);
         sem_wait(sem_lock);
         //printf("in crit sect\n");
-        if (ring_buffer_is_empty(ring_buf) !=0){
-            ring_buffer_pop(ring_buf, idat_holder);
-        }
+        ring_buffer_pop(ring_buf, idat_holder);
+
         sem_post(sem_lock);
         sem_post(sem_spaces);
        // printf("out crit sect\n");
@@ -192,18 +190,21 @@ int run_processes(int producer_count, int consumer_count){
     int ring_buf_size = sizeof(RING_BUFFER) + (sizeof(DATA_BUF) * BUFFER_SIZE);
     int ring_buf_shmid = shmget(IPC_PRIVATE, ring_buf_size, IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
     int idat_buf_shmid = shmget(IPC_PRIVATE, INFLATED_DATA_SIZE, IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
-    if (ring_buf_shmid == -1 || idat_buf_shmid == -1){
+    int num_fetched_shmid = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
+    if (ring_buf_shmid == -1 || idat_buf_shmid == -1 || num_fetched_shmid == -1){
         perror("shmget");
         abort();
     }
 
     ring_buf = shmat(ring_buf_shmid, NULL, 0);
-    idat_data  = shmat(idat_buf_shmid, NULL, 0);
+    idat_data = shmat(idat_buf_shmid, NULL, 0);
+    num_fetched = shmat(num_fetched_shmid, NULL, 0);
     if ( ring_buf == (void *) -1 || idat_data == (void *) -1) {
         perror("shmat");
         abort();
     }
     ring_buffer_init(ring_buf, BUFFER_SIZE);
+    num_fetched = 0;
 
     int sem_items_shmid = shmget(IPC_PRIVATE, sizeof(sem_t), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
     int sem_spaces_shmid = shmget(IPC_PRIVATE, sizeof(sem_t), IPC_CREAT | IPC_EXCL | S_IRUSR | S_IWUSR);
