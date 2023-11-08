@@ -91,7 +91,7 @@ int write_png(struct simple_PNG *png_to_write, size_t idat_data_size) {
     return 0;
 }
 
-int concatenate_png(){
+int concatenate_png(u_int8_t * idat_data){
     simple_PNG_p png_all = malloc(sizeof(struct simple_PNG));
     png_all->p_IHDR = malloc(IHDR_CHUNK_SIZE);
     png_all->p_IEND = malloc(sizeof(struct chunk));
@@ -124,8 +124,8 @@ int concatenate_png(){
 
     // Set IDAT length and type fields
     png_all->p_IDAT->length = htonl(def_actual);
-    const char* ihdr_type = "IDAT";
-    memcpy(png_all->p_IDAT->type, ihdr_type, 4);
+    const char* idat_type = "IDAT";
+    memcpy(png_all->p_IDAT->type, idat_type, 4);
 
     // Set IDAT CRC
     unsigned char idat_crc_buffer[def_actual + 4];

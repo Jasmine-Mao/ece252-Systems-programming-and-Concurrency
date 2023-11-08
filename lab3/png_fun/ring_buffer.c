@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "ring_buffer.h"
 
@@ -44,6 +45,15 @@ int ring_buffer_pop(RING_BUFFER * ring_buf, DATA_BUF * popped_dest){
 
     // Copy head DATA_BUF instance into dest param
     *popped_dest = ring_buf->queue[ring_buf->head];
+
+    printf("Popping segment #%d\n", popped_dest->seq);
+
+    char* idat_type = malloc(5);
+    memcpy(idat_type, popped_dest->png_data + 37, 4);
+    idat_type[4] = '\0';
+
+    printf("Let's check the type.......%s\n", idat_type);
+    free(idat_type);
 
     if (ring_buf->head == ring_buf->tail){
         ring_buf->head = -1;

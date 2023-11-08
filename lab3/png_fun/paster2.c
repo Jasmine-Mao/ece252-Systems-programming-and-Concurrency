@@ -31,12 +31,12 @@ int IMG_NUM;
 int * num_downloaded;
 int * num_processed;
 
-
 sem_t * sem_items;
 sem_t * sem_spaces;
 sem_t * sem_lock;
 
 RING_BUFFER * ring_buf;
+u_int8_t * idat_data;
 
 size_t data_write_callback(char* recv, size_t size, size_t nmemb, void *userdata){
     size_t real_size = size * nmemb;
@@ -146,7 +146,7 @@ int producer_protocol(int process_number, int num_processes){
     strcat(url, URL_IMAGE_SEG);
     /*----END----*/
     
-    while(*num_downloaded < 50){
+    while(process_number < 50){
         char temp[256];
         strcpy(temp, url);
 
@@ -270,7 +270,7 @@ int run_processes(int producer_count, int consumer_count){
 
         // Write all.png
         // Timing operations
-        int result = concatenate_png();
+        int result = concatenate_png(idat_data);
         if (result != 0){
             printf("catpng failure \n");
         }
