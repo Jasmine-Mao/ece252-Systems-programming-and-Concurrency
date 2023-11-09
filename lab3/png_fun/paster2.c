@@ -169,6 +169,8 @@ int producer_protocol(int process_number, int num_processes){
         strip_data.seq = -1;
         strip_data.max_size = 10000;
 
+        sem_wait(sem_spaces);
+
         curl_easy_setopt(curl_handle, CURLOPT_URL, temp);
 
         curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, data_write_callback);
@@ -182,7 +184,6 @@ int producer_protocol(int process_number, int num_processes){
 
         if((res == CURLE_OK)){
             //printf("(Producer) I'm waiting :3\n");
-            sem_wait(sem_spaces);
             sem_wait(sem_lock);
             //printf("(Producer) critical section begin:\n");
 
