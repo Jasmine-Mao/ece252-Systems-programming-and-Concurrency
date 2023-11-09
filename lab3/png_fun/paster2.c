@@ -83,7 +83,7 @@ int consumer_protocol(int i, int consumer_count, RING_BUFFER *ring_buf){
         //printf("(Consumer %d) out of crit sect!\n", i);
         // printf("out crit sect\n");
 
-        usleep(SLEEP_TIME);
+        usleep(SLEEP_TIME*1000);
         //printf("done sleep\n");
         //printf("img seq: %d\n", idat_holder->seq)
             /* extract idat */
@@ -310,6 +310,10 @@ int main(int argc, char * argv[]){
         return -1;
     }
     BUFFER_SIZE = atoi(argv[1]);
+    if (BUFFER_SIZE < 1){
+        fprintf(stderr, "Invalid buffer size!\n");
+        return -1;
+    }
     SLEEP_TIME = atoi(argv[4]);
     IMG_NUM = atoi(argv[5]);
 
