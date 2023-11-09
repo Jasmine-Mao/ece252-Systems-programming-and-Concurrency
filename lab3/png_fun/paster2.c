@@ -31,7 +31,6 @@ int BUFFER_SIZE;
 int SLEEP_TIME;
 int IMG_NUM;
 
-//atomic_bool check_img[50];
 int * num_processed;
 
 sem_t * sem_items;
@@ -71,40 +70,28 @@ int consumer_protocol(int i, int consumer_count, RING_BUFFER *ring_buf){
             break;
         }
         /*critical section: access image, clear queue slot, exit*/ 
-        //printf("(Consumer %d) I'm waiting :3\n", i);
         sem_wait(sem_items);
         sem_wait(sem_lock);
-        //printf("(Consumer %d) critical section begin:\n", i);
-        //printf("in crit sect\n");
+
         ring_buffer_pop(ring_buf, idat_holder);
 
         sem_post(sem_lock);
         sem_post(sem_spaces);
-        //printf("(Consumer %d) out of crit sect!\n", i);
-        // printf("out crit sect\n");
 
         usleep(SLEEP_TIME*1000);
-        //printf("done sleep\n");
-        //printf("img seq: %d\n", idat_holder->seq)
+
             /* extract idat */
         int read_index = PNG_SIG_SIZE + IHDR_CHUNK_SIZE;
         unsigned int compressed_size = 0;
         memcpy(&compressed_size, idat_holder->png_data + read_index, CHUNK_LEN_SIZE);
         compressed_size = ntohl(compressed_size);
 
-        //printf("compressed size: %d\n", compressed_size);
-
         read_index += CHUNK_LEN_SIZE + CHUNK_TYPE_SIZE;
 
         u_int8_t* inflate_buffer = malloc(compressed_size);
 
         memcpy(inflate_buffer, idat_holder->png_data + read_index, compressed_size);
-        // printf("Png data: %s \n", idat_holder->png_data);
-        // for (int i = 0; i < compressed_size; i++){
-        //     printf("%X", idat_holder->png_data[i]);
-        // }
 
-        //printf("extracted idat\n");
             /* store idat */
         int store_index = idat_holder->seq * STRIP_HEIGHT * (PNG_WIDTH * 4 + 1);
         U64 inf_size;
@@ -113,8 +100,6 @@ int consumer_protocol(int i, int consumer_count, RING_BUFFER *ring_buf){
         mem_inf(idat_data + store_index, &inf_size, inflate_buffer, compressed_size);
         sem_post(consumer_write_lock);
 
-        //printf("stored idat\n");
-        //check_img[idat_holder->seq] = 1;
         free(inflate_buffer);
         (*num_processed)++;
     }
@@ -183,16 +168,13 @@ int producer_protocol(int process_number, int num_processes){
         res = curl_easy_perform(curl_handle);
 
         if((res == CURLE_OK)){
-            //printf("(Producer) I'm waiting :3\n");
             sem_wait(sem_lock);
-            //printf("(Producer) critical section begin:\n");
 
             ring_buffer_insert(ring_buf, &strip_data);
             
             sem_post(sem_lock);
             sem_post(sem_items);
 
-            //printf("(Producer) out of crit sect!\n");
             process_number += num_processes;
         }
         free(seg);
@@ -244,7 +226,6 @@ int run_processes(int producer_count, int consumer_count){
             children[i] = pid;
         }
         else if (pid == 0){
-            //printf("Spawned producer child %d\n", i);
             producer_protocol(i, producer_count);
             exit(EXIT_SUCCESS);
         }
@@ -260,7 +241,6 @@ int run_processes(int producer_count, int consumer_count){
             children[producer_count + i] = pid;
         }
         else if (pid == 0){
-            //printf("Spawned consumer child %d\n", producer_count + i);
             consumer_protocol(i, consumer_count, ring_buf);
             exit(EXIT_SUCCESS);
         }
@@ -284,8 +264,7 @@ int run_processes(int producer_count, int consumer_count){
         shmctl(sem_spaces_shmid, IPC_RMID, NULL);
         shmctl(sem_lock_shmid, IPC_RMID, NULL);
 
-        // Write all.png
-        // Timing operations
+        /*Write all.png*/
         int result = concatenate_png(idat_data);
         if (result != 0){
             printf("catpng failure \n");
@@ -300,11 +279,11 @@ int run_processes(int producer_count, int consumer_count){
 
 
 int main(int argc, char * argv[]){
-    // PARSE ARGS:
-    // ./paster2 B P C X N
+    /* PARSE ARGS:
+    ./paster2 B P C X N
 
-    // P, C passed to run_processes function
-    // B, X, N are set into global variables for buffer size, sleep time, and image number.;
+    P, C passed to run_processes function
+    B, X, N are set into global variables for buffer size, sleep time, and image number. */
     if (argc != 6){
         fprintf(stderr, "Incorrect arguments!\n");
         return -1;
