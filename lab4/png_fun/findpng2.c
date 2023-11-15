@@ -18,7 +18,7 @@
 FRONTIER * urls_frontier;
 char ** unique_pngs;    // this is a pointer to an array of pointers (where each item is a pointer to a char array (string)
 
-// TODO: @<name_here> curl callbacks!
+// TODO: @<JASMINE> curl callbacks!
 
 // insert curl functions here :P
 
@@ -40,7 +40,7 @@ int ht_add_url(char * url){
     // for the hash table stuff)
 }
 
-// TODO: @<name_here> thread routine
+// TODO: @<JASMINE> thread routine
 int visit_url(void * arg){
 
     
@@ -70,7 +70,7 @@ int visit_url(void * arg){
 int main(int argc, char * argv[]){
     //./findpng2 –t=num –m=num –v=filename seed_url -- t, m, v are opt
 
-    // TODO: @<name_here> argument parsing & initialization
+    // TODO: @<JASMINE> argument parsing & initialization
     // frontiers_init here, push the seed_url onto the stack as the first element
     // (i made a quick definiton for frontiers_init already)
     // hash table creation here
