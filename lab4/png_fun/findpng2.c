@@ -50,18 +50,18 @@ int ht_add_url(char * url){
 // TODO: @<JASMINE> thread routine
 void *visit_url(void * arg){
 
+    CURL *curl_handle = curl_easy_init();
     
     // while frontiers_counter is non zero or while our png counter < M <-- IMPORTANT: im not sure if this implementation is sound! 
     //                                                                      there may be some synchronization effort required so that things terminate gracefully. see foot note (lol)
     // pop from frontiers, this url should be unvisited 
-
     // curl stuff, up to you
-
     // ht_search_url()
     // push onto stack if needed, add a new hash table entry etc etc
     // for pngs, lets add to the unique_pngs array
-
     // decrement frontiers counter (as we have now visited the url)
+
+    
 
     return NULL;
 }
@@ -159,6 +159,12 @@ int main(int argc, char * argv[]){
     // initialize unique_pngs array, just malloc(m * sizeof(char *))
     // initialize conditional variables, eg. frontiers_counter etc.
 
+    urls_frontier = malloc(sizeof(FRONTIER));
+    frontier_init(urls_frontier);
+
+    unique_pngs = malloc(num_pngs * sizeof(char *));
+
+    curl_global_init(CURL_GLOBAL_DEFAULT);
 
     // TODO: @EVELYN thread creation, joining and cleanup
     // if t == 1, just jump to visit_url [seed]
