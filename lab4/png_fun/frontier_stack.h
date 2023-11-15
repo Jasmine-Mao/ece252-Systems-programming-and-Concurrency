@@ -1,9 +1,11 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#define FRONTIER_MAX_SIZE 500
+
 /**
  * @file: frontier_stack.h
- * @brief: defintions for a ring buffer data structure and its operations
+ * @brief: defintions for a stack data structure and its operations
  */
 
 typedef struct frontier_stack {
@@ -11,6 +13,8 @@ typedef struct frontier_stack {
     int top;
 } FRONTIER;
 
-int frontiers_init(FRONTIER * frontier);
-int frontiers_push(FRONTIER * frontier, char * incoming_url);
-int frontiers_pop(FRONTIER * frontier, char * outgoing_url);
+int frontier_init(FRONTIER * frontier);
+int frontier_push(FRONTIER * frontier, char * incoming_url);
+int frontier_pop(FRONTIER * frontier, char * outgoing_url);
+int frontier_is_empty(FRONTIER * frontier);
+int frontier_is_full(FRONTIER * frontier);

@@ -4,12 +4,34 @@
 
 #include "frontier_stack.h"
 
-int frontiers_init(FRONTIER * frontier){
+int frontier_init(FRONTIER * frontier){
     frontier->top = -1;
-    frontier->stack = malloc(500* sizeof(char*));
+    frontier->stack = malloc(FRONTIER_MAX_SIZE* sizeof(char*));
     return 0;
 }
 
-// TODO: @<name_here> stack push and pop operations
-int frontiers_push(FRONTIER * stack, char * incoming_url);
-int frontiers_pop(FRONTIER * stack, char * outgoing_url);
+int frontier_push(FRONTIER * frontier, char * incoming_url){
+    if (frontier_is_full(frontier)){
+        printf("Tried to push while frontiers is full! Something has gone terribly wrong!\n");
+    }
+    frontier->top++;
+    frontier->stack[frontier->top] = incoming_url;
+    return 0;
+}
+
+int frontier_pop(FRONTIER * frontier, char * outgoing_url){
+    if (frontier_is_empty(frontier)){
+        printf("Tried to pop while frontiers is full! Something has gone wrong!\n");
+    }
+    frontier->top--;
+    return 0;
+}
+
+int frontier_is_empty(FRONTIER * frontier){
+    return (frontier->top == -1);
+}
+
+int frontier_is_full(FRONTIER * frontier){
+    return (frontier->top == FRONTIER_MAX_SIZE - 1);
+}
+
