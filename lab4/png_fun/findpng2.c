@@ -188,8 +188,8 @@ int main(int argc, char * argv[]){
         }
     }
 
-    //free(urls_frontier->stack);
-    //free(urls_frontier);
+    free(urls_frontier->stack);
+    free(urls_frontier);
 
     // TODO: @EVELYN
     // write png_urls.txt
