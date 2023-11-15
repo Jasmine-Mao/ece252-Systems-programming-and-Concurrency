@@ -7,12 +7,14 @@
 #include <curl/curl.h>
 #include <pthread.h>
 
+#include <getopt.h>
+
 /*#include <libxml/HTMLparser.h> //these aren't working for some reason
 #include <libxml/parser.h>
 #include <libxml/xpath.h>
 #include <libxml/uri.h>*/
 #include "findpng2.h"
-#include "frontiers_stack.h"
+#include "frontier_stack.h"
 
 // GLOBAL VARIABLES
 FRONTIER * urls_frontier;
@@ -38,6 +40,7 @@ int ht_search_url(char * url){
 int ht_add_url(char * url){
     // add a url to our hash table: get its key from its string url then set corresponding value (youre gonna have to check the hsearch(3) man page)
     // for the hash table stuff)
+    return 0;
 }
 
 // TODO: @<JASMINE> thread routine
@@ -69,6 +72,50 @@ int visit_url(void * arg){
 
 int main(int argc, char * argv[]){
     //./findpng2 –t=num –m=num –v=filename seed_url -- t, m, v are opt
+    int c;
+    int num_threads = 1;
+    int num_pngs = 50;
+    FILE* log_file;
+    // default to 1 thread looking for 50 pngs; no logging
+
+    if(argc < 2){
+        fprintf(stderr, "Incorrect arguments!\n");
+        return -1;
+    }
+
+    /*OPTION STUFF*/
+    while((c = getopt(argc, argv, "t:m:v:")) != -1){
+        switch (c)
+        {
+        case 't':
+            num_threads = strtoul(optarg, NULL, 10);
+            if(num_threads <= 0){
+                printf("please enter valid thread number\n");
+                return -1;
+            }
+            printf("arg passed for threads: %d\n", num_threads);
+            break;
+        
+        case 'm':
+            num_pngs = strtoul(optarg, NULL, 10);
+            if(num_pngs <= 0){
+                printf("please enter valid number of max images\n");
+                return -1;
+            }
+            printf("arg passed for num images: %d\n", num_pngs);
+            break;
+        case 'v':
+            //memcpy(log_file, optarg, strlen(optarg));
+            printf("file to write log to: %s\n", optarg);
+            log_file = fopen(optarg, "w+");
+            // creates a file for logging; ***must be closed at the end of any operation using the log
+            break;
+        default:
+            break;
+        }        
+    }
+
+
 
     // TODO: @<JASMINE> argument parsing & initialization
     // frontiers_init here, push the seed_url onto the stack as the first element

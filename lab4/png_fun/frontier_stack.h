@@ -2,7 +2,7 @@
 #include <unistd.h>
 
 /**
- * @file: frontiers_stack.h
+ * @file: frontier_stack.h
  * @brief: defintions for a ring buffer data structure and its operations
  */
 

@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "frontiers_stack.h"
+#include "frontier_stack.h"
 
 int frontiers_init(FRONTIER * frontier){
     frontier->top = -1;

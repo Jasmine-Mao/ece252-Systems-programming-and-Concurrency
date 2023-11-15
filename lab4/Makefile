@@ -7,7 +7,7 @@ FINDPNG2_OBJS = $(SRC_DIR)/findpng2.o $(SRC_DIR)/frontier_stack.o
 
 all: findpng2
 
-findpng2: $(FIND_OBJS)
+findpng2: $(FINDPNG2_OBJS)
 	$(CC) $(CFLAGS) -o findpng2 $(FINDPNG2_OBJS) -lcurl -lz -pthread
 
 .c.o:
