@@ -96,17 +96,29 @@ xmlXPathObjectPtr getnodeset (xmlDocPtr doc, xmlChar *xpath)
     xmlXPathObjectPtr result;
 
     context = xmlXPathNewContext(doc);
+    // sets the context of the xml path to the document just retrieved from the link
     if (context == NULL) {
         printf("Error in xmlXPathNewContext\n");
         return NULL;
     }
     result = xmlXPathEvalExpression(xpath, context);
+    // expression is the name of files in a directory
+    //      they can be names of nodes, /, //, ., .., etc
+
+    // context: "The context path refers to the location relative to the server's address which represents the name of the web application"
+    // new copntexr function needs to have the context freed after, which is below
     xmlXPathFreeContext(context);
     if (result == NULL) {
+        // BAD, DON'T WANT TO GET HERE
         printf("Error in xmlXPathEvalExpression\n");
         return NULL;
     }
     if(xmlXPathNodeSetIsEmpty(result->nodesetval)){
+        // you know how html has those bins and you can label them <something>? that's a node
+        // if there are no nodes in the xml file, run this
+        // don't know why this would be needed tho
+
+        // looks like this is a worst case scenario; shouldn't be getting here ideally
         xmlXPathFreeObject(result);
         printf("No result\n");
         return NULL;
@@ -116,7 +128,7 @@ xmlXPathObjectPtr getnodeset (xmlDocPtr doc, xmlChar *xpath)
 
 int find_http(char *buf, int size, int follow_relative_links, const char *base_url)
 {
-
+    // finds the links in a doc; based off the base url
     int i;
     htmlDocPtr doc;
     xmlChar *xpath = (xmlChar*) "//a/@href";
@@ -129,18 +141,23 @@ int find_http(char *buf, int size, int follow_relative_links, const char *base_u
     }
 
     doc = mem_getdoc(buf, size, base_url);
+    // gets the html file that we need to actually look at
+    // creates a text file with the html code, links are taken from it and just output raw
     result = getnodeset (doc, xpath);
     if (result) {
         nodeset = result->nodesetval;
         for (i=0; i < nodeset->nodeNr; i++) {
             href = xmlNodeListGetString(doc, nodeset->nodeTab[i]->xmlChildrenNode, 1);
-            if ( follow_relative_links ) {
+            if ( follow_relative_links ) { // if we say yes, we want to follow relative links, go here --> i think we will want to follow these relative paths too
                 xmlChar *old = href;
-                href = xmlBuildURI(href, (xmlChar *) base_url);
+                href = xmlBuildURI(href, (xmlChar *) base_url); // stitches together the relative url to make a full, absolute path
                 xmlFree(old);
             }
             if ( href != NULL && !strncmp((const char *)href, "http", 4) ) {
                 printf("href: %s\n", href);
+                // here is where the url printing actually happens
+                // makes sure that the href passed is an http, then prints it out
+                // this can be modified to add to the frontier buf/stack/queue however we end up implementing it
             }
             xmlFree(href);
         }
@@ -369,7 +386,10 @@ int process_html(CURL *curl_handle, RECV_BUF *p_recv_buf)
 
     curl_easy_getinfo(curl_handle, CURLINFO_EFFECTIVE_URL, &url);
     find_http(p_recv_buf->buf, p_recv_buf->size, follow_relative_link, url); 
+        // this is where we get all the links
+        // can modify this to be called elsewhere by threads
     sprintf(fname, "./output_%d.html", pid);
+        // outputs the html stuff to a file
     return write_file(fname, p_recv_buf->buf, p_recv_buf->size);
 }
 
@@ -379,6 +399,11 @@ int process_png(CURL *curl_handle, RECV_BUF *p_recv_buf)
     char fname[256];
     char *eurl = NULL;          /* effective URL */
     curl_easy_getinfo(curl_handle, CURLINFO_EFFECTIVE_URL, &eurl);
+        // gets the effective url from the curl handle
+        // effective URL is the last used url
+            // see: https://curl.se/libcurl/c/curl_easy_getinfo.html
+        // puts the last used url into the eurl pointer
+            // if there was a last used url print out the below text
     if ( eurl != NULL) {
         printf("The PNG url is: %s\n", eurl);
     }
@@ -401,17 +426,23 @@ int process_data(CURL *curl_handle, RECV_BUF *p_recv_buf)
     long response_code;
 
     res = curl_easy_getinfo(curl_handle, CURLINFO_RESPONSE_CODE, &response_code);
+    // see for response codes: https://everything.curl.dev/http/response
     if ( res == CURLE_OK ) {
 	    printf("Response code: %ld\n", response_code);
     }
 
     if ( response_code >= 400 ) { 
+        // 4xx: the client asked for something the server could not or would not deliver
+        // 5xx: there is a problem in the server
+            // basically errors
     	fprintf(stderr, "Error.\n");
         return 1;
-    }
+    }s
 
     char *ct = NULL;
     res = curl_easy_getinfo(curl_handle, CURLINFO_CONTENT_TYPE, &ct);
+        // return content type header
+        // should be text/html if we got to an html text page i think?
     if ( res == CURLE_OK && ct != NULL ) {
     	printf("Content-Type: %s, len=%ld\n", ct, strlen(ct));
     } else {
@@ -419,7 +450,7 @@ int process_data(CURL *curl_handle, RECV_BUF *p_recv_buf)
         return 2;
     }
 
-    if ( strstr(ct, CT_HTML) ) {
+    if ( strstr(ct, CT_HTML) ) {    // finds first occurence of CT_HTML in ct; returns a pointer to the first occurence in ct if successful
         return process_html(curl_handle, p_recv_buf);
     } else if ( strstr(ct, CT_PNG) ) {
         return process_png(curl_handle, p_recv_buf);
