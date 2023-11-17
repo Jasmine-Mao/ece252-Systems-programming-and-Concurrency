@@ -10,10 +10,10 @@
 
 #include <getopt.h>
 
-/*#include <libxml/HTMLparser.h> //these aren't working for some reason
+#include <libxml/HTMLparser.h> //these aren't working for some reason
 #include <libxml/parser.h>
 #include <libxml/xpath.h>
-#include <libxml/uri.h>*/
+#include <libxml/uri.h>
 #include "findpng2.h"
 #include "frontier_stack.h"
 
@@ -23,6 +23,7 @@
 FRONTIER * urls_frontier;
 char ** unique_pngs;    // this is a pointer to an array of pointers (where each item is a pointer to a char array (string)
 int png_count = 0;
+char seed_url[256];
 
 // TODO: @<JASMINE> curl callbacks!
 
@@ -149,8 +150,9 @@ int main(int argc, char * argv[]){
             break;
         }        
     }
-
-
+    strcpy(seed_url, argv[argc-1]);
+    // gets seed url from args passed
+    // this will be the url to be searched through recursively
 
     // TODO: @<JASMINE> argument parsing & initialization
     // frontiers_init here, push the seed_url onto the stack as the first element
