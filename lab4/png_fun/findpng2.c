@@ -9,48 +9,264 @@
 #include <pthread.h>
 
 #include <getopt.h>
+#include <search.h>
 
-/*#include <libxml/HTMLparser.h> //these aren't working for some reason
+#include <libxml/HTMLparser.h>
 #include <libxml/parser.h>
 #include <libxml/xpath.h>
-#include <libxml/uri.h>*/
+#include <libxml/uri.h>
 #include "findpng2.h"
 #include "frontier_stack.h"
 
 #define MAX_URLS 500
+#define ECE_252_HEADER "X-Ece252-Fragment: "
+
 
 // GLOBAL VARIABLES
 FRONTIER * urls_frontier;
 char ** unique_pngs;    // this is a pointer to an array of pointers (where each item is a pointer to a char array (string)
 int png_count = 0;
+char seed_url[256];
+
+typedef struct data_buf {
+    char* buf;
+    size_t size;
+    size_t max_size;
+    int seq;
+} DATA_BUF;
+// for storing data fetched from the curl calls
 
 // TODO: @<JASMINE> curl callbacks!
 
 // insert curl functions here :P
 
-// TODO: @<name_here> Hash table operations (ht_search_url and ht_add_url, maybe also add a ht_init?)
+size_t header_write_callback(char* recv, size_t size, size_t nmemb, void* user_data){
+    ////////////////////
+    // FOR HEADER DATA
+    ////////////////////
 
-int url_to_key(char * url){
-    // parses url string into a numerical representation (sum of ascii values) to be used as the key
+    size_t real_size = size * nmemb;
+    DATA_BUF* data_fetched = user_data;
+
+    if(real_size > strlen(ECE_252_HEADER) &&  strncmp(recv, ECE_252_HEADER, strlen(ECE_252_HEADER))){
+        data_fetched->seq = atoi(recv + strlen(ECE_252_HEADER));
+    }
+
+    return real_size;
+}
+
+size_t data_write_callback(char* recv, size_t size, size_t nmemb, void* user_data){
+    ////////////////////
+    // FOR PNG DATA
+    ////////////////////
+
+    size_t real_size = size * nmemb;
+    DATA_BUF* data_fetched = user_data;
+    memcpy(data_fetched->buf + data_fetched->size, recv, real_size);
+    data_fetched->size += real_size;
+    return real_size;
+
+    // taken directly from paster2
+}
+
+htmlDocPtr mem_getdoc(char *buf, int size, const char *url)
+{
+    int opts = HTML_PARSE_NOBLANKS | HTML_PARSE_NOERROR | \
+               HTML_PARSE_NOWARNING | HTML_PARSE_NONET;
+    htmlDocPtr doc = htmlReadMemory(buf, size, url, NULL, opts);
+    
+    if ( doc == NULL ) {
+        fprintf(stderr, "Document not parsed successfully.\n");
+        return NULL;
+    }
+    return doc;
+}
+
+xmlXPathObjectPtr getnodeset (xmlDocPtr doc, xmlChar *xpath)
+{
+	
+    xmlXPathContextPtr context;
+    xmlXPathObjectPtr result;
+
+    context = xmlXPathNewContext(doc);
+    // sets the context of the xml path to the document just retrieved from the link
+    if (context == NULL) {
+        printf("Error in xmlXPathNewContext\n");
+        return NULL;
+    }
+    result = xmlXPathEvalExpression(xpath, context);
+    // expression is the name of files in a directory
+    //      they can be names of nodes, /, //, ., .., etc
+
+    // context: "The context path refers to the location relative to the server's address which represents the name of the web application"
+    // new copntexr function needs to have the context freed after, which is below
+    xmlXPathFreeContext(context);
+    if (result == NULL) {
+        // BAD, DON'T WANT TO GET HERE
+        printf("Error in xmlXPathEvalExpression\n");
+        return NULL;
+    }
+    if(xmlXPathNodeSetIsEmpty(result->nodesetval)){
+        xmlXPathFreeObject(result);
+        printf("No result\n");
+        return NULL;
+    }
+    return result;
+}
+
+int find_http(char *buf, int size, int follow_relative_links, const char *base_url)
+{
+    // finds the links in a doc; based off the base url
+    int i;
+    htmlDocPtr doc;
+    xmlChar *xpath = (xmlChar*) "//a/@href";
+    xmlNodeSetPtr nodeset;
+    xmlXPathObjectPtr result;
+    xmlChar *href;
+		
+    if (buf == NULL) {
+        return 1;
+    }
+
+    doc = mem_getdoc(buf, size, base_url);
+    // gets the html file that we need to actually look at
+    // creates a text file with the html code, links are taken from it and just output raw
+    result = getnodeset (doc, xpath);
+    if (result) {
+        nodeset = result->nodesetval;
+        for (i=0; i < nodeset->nodeNr; i++) {
+            href = xmlNodeListGetString(doc, nodeset->nodeTab[i]->xmlChildrenNode, 1);
+            if ( follow_relative_links ) { // if we say yes, we want to follow relative links, go here --> i think we will want to follow these relative paths too
+                xmlChar *old = href;
+                href = xmlBuildURI(href, (xmlChar *) base_url); // stitches together the relative url to make a full, absolute path
+                xmlFree(old);
+            }
+            if ( href != NULL && !strncmp((const char *)href, "http", 4) ) {
+                printf("href: %s\n", href);
+                // here is where the url printing actually happens
+                // makes sure that the href passed is an http, then prints it out
+                // this can be modified to add to the frontier buf/stack/queue however we end up implementing it
+            }
+            xmlFree(href);
+        }
+        xmlXPathFreeObject (result);
+    }
+    xmlFreeDoc(doc);
+    xmlCleanupParser();
     return 0;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// TODO: @Iman Hash table operations (ht_search_url and ht_add_url, maybe also add a ht_init?)
+
+typedef struct entry {
+    char* key; //url ascii-based key
+    void* data; //url
+} ENTRY;
+
+//hcreate and hdestroy in main
+
+int url_to_key(char * url){
+    size_t len = strlen(url);
+    int i = 0;
+    int asciival= 0;
+    int key = 0;
+    for (i = 0; i < len; i++){
+        asciival += url[i];
+    }
+    asciival = asciival/len;
+    index = asciival % 500;
+    return key;
+}
+
+char* intkey_to_charkey(int intkey){
+    //int key = url_to_key(char* url)
+    int buffer1;
+    char buffer2;
+    char* key = '\n';
+    return key;
+}
+    // parses url string into a numerical representation (sum of ascii values) to be used as the key
+    /*
+    for length of url
+        get url character at index
+        convert to ascii
+        add to sum
+    divide by number of characters
+    mod 10 and store
+    add one and mod 10 and store
+    
+    */
 
 int ht_search_url(char * url){
     // gets key from url, and invokes hsearch() with said key
     // return 1 if the url exists in the hash table, 0 otherwise
-    return 0;
+    ENTRY* temp_url = malloc(sizeof(ENTRY));
+    temp_url->key = intkey_to_charkey(url_to_key(url));
+    temp_url->data = url;
+
+    if (hsearch(temp_url, FIND) == NULL){
+        //not found
+        free(temp_url);
+        //output errno
+        return 0;
+    } else {
+        free(temp_url);  
+        return 1;
+    }
+    free(temp_url);
+    return -1; //should not get here
 }
 
 int ht_add_url(char * url){
     // add a url to our hash table: get its key from its string url then set corresponding value (youre gonna have to check the hsearch(3) man page)
     // for the hash table stuff)
-    return 0;
+
+    ENTRY* temp_url = malloc(sizeof(ENTRY));
+    temp_url->key = intkey_to_charkey(url_to_key(url));
+    temp_url->data = url;
+    int i = 1;
+    result = -1; //default == error result
+    if (errno != ENOMEM){
+        while(hsearch(temp_url, ENTER) == NULL){
+            temp_url->key = intkey_to_charkey((url_to_key(url)+i)%500);
+            i++;
+        }
+        result = 1;
+    }
+    free(temp_url);
+    return result;
 }
+    /*
+    while ((hsearch(temp_url, ENTER) == NULL) && errno != ENOMEM){
+        temp_url->key = intkey_to_charkey((url_to_key(url)+i)%500);
+        i++;
+    }
+    free(temp_url);
+    return 0;*/
+
 
 // TODO: @<JASMINE> thread routine
 void *visit_url(void * arg){
 
-    CURL *curl_handle = curl_easy_init();
+    // CURL *curl_handle = curl_easy_init();
     
     // while frontiers_counter is non zero or while our png counter < M <-- IMPORTANT: im not sure if this implementation is sound! 
     //                                                                      there may be some synchronization effort required so that things terminate gracefully. see foot note (lol)
@@ -111,12 +327,20 @@ int main(int argc, char * argv[]){
     int num_threads = 1;
     int num_pngs = 50;
     char* logfile_name = NULL;
+    
     // default to 1 thread looking for 50 pngs; no logging
 
     if(argc < 2){
         fprintf(stderr, "Incorrect arguments!\n");
         return -1;
     }
+
+    if (hcreate(MAX_URLS) == 0){
+        printf("Visited URLs table could not be made!\n");
+        return errno;
+    }
+
+    printf("i'm in main!\n");
 
     /*OPTION STUFF*/
     while((c = getopt(argc, argv, "t:m:v:")) != -1){
@@ -149,8 +373,10 @@ int main(int argc, char * argv[]){
             break;
         }        
     }
-
-
+    strcpy(seed_url, argv[argc-1]);
+    printf("url to look for is %s\n", seed_url);
+    // gets seed url from args passed
+    // this will be the url to be searched through recursively
 
     // TODO: @<JASMINE> argument parsing & initialization
     // frontiers_init here, push the seed_url onto the stack as the first element
@@ -159,10 +385,10 @@ int main(int argc, char * argv[]){
     // initialize unique_pngs array, just malloc(m * sizeof(char *))
     // initialize conditional variables, eg. frontiers_counter etc.
 
-    urls_frontier = malloc(sizeof(FRONTIER));
-    frontier_init(urls_frontier);
+    // urls_frontier = malloc(sizeof(FRONTIER));
+    // frontier_init(urls_frontier);
 
-    unique_pngs = malloc(num_pngs * sizeof(char *));
+    // unique_pngs = malloc(num_pngs * sizeof(char *));
 
     curl_global_init(CURL_GLOBAL_DEFAULT);
 
@@ -171,22 +397,58 @@ int main(int argc, char * argv[]){
     // else, create threads, visit_url will be our thread routine
     // threads join, cleanup
 
-    if (num_threads == 1){
-        visit_url(NULL);
-    }
-    else{
-        pthread_t threads[num_threads];
-        int threads_res[num_threads];
-        for (int i = 0; i < num_threads; i++){
-            threads_res[i] = pthread_create(threads + i, NULL, visit_url, NULL);
-        }
+    // if (num_threads == 1){
+    //     visit_url(NULL);
+    // }
+    // else{
+    //     pthread_t threads[num_threads];
+    //     int threads_res[num_threads];
+    //     for (int i = 0; i < num_threads; i++){
+    //         threads_res[i] = pthread_create(threads + i, NULL, visit_url, NULL);
+    //     }
 
-        for (int i = 0; i < num_threads; i++){
-            if (threads_res[i] == 0){
-                pthread_join(threads[i], NULL);
-            }
-        }
+    //     for (int i = 0; i < num_threads; i++){
+    //         if (threads_res[i] == 0){
+    //             pthread_join(threads[i], NULL);
+    //         }
+    //     }
+    // }
+
+    CURL* curl_handle = curl_easy_init();
+    DATA_BUF temp_buf;
+    temp_buf.size = 0;
+    temp_buf.seq = -1;
+    temp_buf.max_size = 1048576;
+
+    if(curl_handle == NULL){
+        printf("curl failed L\n");
+        return -1;
     }
+
+    CURLcode res;
+
+    // putting curl stuff here for testing!!!
+
+    curl_easy_setopt(curl_handle, CURLOPT_URL, seed_url);
+
+    curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, data_write_callback);
+    curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, (void*)&temp_buf);
+
+    curl_easy_setopt(curl_handle, CURLOPT_HEADERFUNCTION, header_write_callback);
+    curl_easy_setopt(curl_handle, CURLOPT_HEADERDATA, (void*)&temp_buf);
+    curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, "ece252 lab4 crawler");
+
+    curl_easy_setopt(curl_handle, CURLOPT_FOLLOWLOCATION, 1L);
+    curl_easy_setopt(curl_handle, CURLOPT_UNRESTRICTED_AUTH, 1L);
+    curl_easy_setopt(curl_handle, CURLOPT_MAXREDIRS, 5L);
+    curl_easy_setopt(curl_handle, CURLOPT_ACCEPT_ENCODING, "");
+
+    res = curl_easy_perform(curl_handle);
+
+    if(res == CURLE_OK){
+        printf("successfully curled\n");
+    }
+    curl_easy_cleanup(curl_handle);
 
     free(urls_frontier->stack);
     free(urls_frontier);
@@ -194,7 +456,7 @@ int main(int argc, char * argv[]){
     // TODO: @EVELYN
     // write png_urls.txt
     // perform optional write to LOGFILE
-    write_results(logfile_name);
-
+    //write_results(logfile_name);
+    hdestroy();
     return 0;
 }
