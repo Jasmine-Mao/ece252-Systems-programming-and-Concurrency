@@ -21,6 +21,10 @@
 #define MAX_URLS 500
 #define ECE_252_HEADER "X-Ece252-Fragment: "
 
+#define CT_PNG  "image/png"
+#define CT_HTML "text/html"
+#define CT_PNG_LEN  9
+#define CT_HTML_LEN 9
 
 // GLOBAL VARIABLES
 FRONTIER * urls_frontier;
@@ -432,13 +436,13 @@ int main(int argc, char * argv[]){
     }
     curl_easy_cleanup(curl_handle);
 
-    //free(urls_frontier->stack);
-    //free(urls_frontier);
-
-    // TODO: @EVELYN
-    // write png_urls.txt
-    // perform optional write to LOGFILE
-    //write_results(logfile_name);
+    free(urls_frontier->stack);
+    free(urls_frontier);
+    
     hdestroy();
+    write_results(logfile_name);
+
+    free(unique_pngs);
+
     return 0;
 }
