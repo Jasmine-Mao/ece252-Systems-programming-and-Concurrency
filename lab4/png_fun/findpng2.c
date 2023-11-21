@@ -63,9 +63,49 @@ size_t data_write_callback(char* recv, size_t size, size_t nmemb, void* user_dat
     DATA_BUF* data_fetched = user_data;
     memcpy(data_fetched->buf + data_fetched->size, recv, real_size);
     data_fetched->size += real_size;
+    printf("%s\n", recv);
     return real_size;
 
     // taken directly from paster2
+}
+
+CURL *easy_handle_init(DATA_BUF *ptr, const char *url)
+{
+    CURL *curl_handle = NULL;
+
+    if ( ptr == NULL || url == NULL) {
+        return NULL;
+    }
+
+    /* init a curl session */
+    curl_handle = curl_easy_init();
+
+    if (curl_handle == NULL) {
+        fprintf(stderr, "curl_easy_init: returned NULL\n");
+        return NULL;
+    }
+
+    /* specify URL to get */
+    curl_easy_setopt(curl_handle, CURLOPT_URL, url);
+
+    curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, data_write_callback); 
+    curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, (void *)ptr);
+
+    curl_easy_setopt(curl_handle, CURLOPT_HEADERFUNCTION, header_write_callback); 
+    curl_easy_setopt(curl_handle, CURLOPT_HEADERDATA, (void *)ptr);
+
+    curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, "ece252 lab4 crawler");
+
+    curl_easy_setopt(curl_handle, CURLOPT_FOLLOWLOCATION, 1L);
+    curl_easy_setopt(curl_handle, CURLOPT_UNRESTRICTED_AUTH, 1L);
+    curl_easy_setopt(curl_handle, CURLOPT_MAXREDIRS, 5L);
+    curl_easy_setopt(curl_handle, CURLOPT_ACCEPT_ENCODING, "");
+
+    curl_easy_setopt(curl_handle, CURLOPT_COOKIEFILE, "");
+    curl_easy_setopt(curl_handle, CURLOPT_PROXYAUTH, CURLAUTH_ANY);
+    curl_easy_setopt(curl_handle, CURLOPT_HTTPAUTH, CURLAUTH_ANY);
+
+    return curl_handle;
 }
 
 htmlDocPtr mem_getdoc(char *buf, int size, const char *url)
@@ -252,6 +292,7 @@ int write_results(char * logfile_name){
 
 int main(int argc, char * argv[]){
     //./findpng2 –t=num –m=num –v=filename seed_url -- t, m, v are opt
+    curl_global_init(CURL_GLOBAL_DEFAULT);
     int c;
     int num_threads = 1;
     int num_pngs = 50;
@@ -313,7 +354,6 @@ int main(int argc, char * argv[]){
 
     // unique_pngs = malloc(num_pngs * sizeof(char *));
 
-    curl_global_init(CURL_GLOBAL_DEFAULT);
 
     // TODO: @EVELYN thread creation, joining and cleanup
     // if t == 1, just jump to visit_url [seed]
@@ -336,40 +376,25 @@ int main(int argc, char * argv[]){
     //         }
     //     }
     // }
-
-    CURL* curl_handle = curl_easy_init();
-    DATA_BUF temp_buf;
-    temp_buf.size = 0;
-    temp_buf.seq = -1;
-    temp_buf.max_size = 1048576;
+    DATA_BUF buf;
+    buf.max_size = 1048576;
+    buf.buf = malloc(1048576);
+    buf.size = 0;
+    buf.seq = -1;
+    CURL* curl_handle = easy_handle_init(&buf, seed_url);
 
     if(curl_handle == NULL){
         printf("curl failed L\n");
         return -1;
     }
 
-    CURLcode res;
-
-    // putting curl stuff here for testing!!!
-
-    curl_easy_setopt(curl_handle, CURLOPT_URL, seed_url);
-
-    curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, data_write_callback);
-    curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, (void*)&temp_buf);
-
-    curl_easy_setopt(curl_handle, CURLOPT_HEADERFUNCTION, header_write_callback);
-    curl_easy_setopt(curl_handle, CURLOPT_HEADERDATA, (void*)&temp_buf);
-    curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, "ece252 lab4 crawler");
-
-    curl_easy_setopt(curl_handle, CURLOPT_FOLLOWLOCATION, 1L);
-    curl_easy_setopt(curl_handle, CURLOPT_UNRESTRICTED_AUTH, 1L);
-    curl_easy_setopt(curl_handle, CURLOPT_MAXREDIRS, 5L);
-    curl_easy_setopt(curl_handle, CURLOPT_ACCEPT_ENCODING, "");
-
-    res = curl_easy_perform(curl_handle);
+    CURLcode res = curl_easy_perform(curl_handle);
 
     if(res == CURLE_OK){
         printf("successfully curled\n");
+    }
+    else{
+        return -1;
     }
     curl_easy_cleanup(curl_handle);
 
@@ -380,6 +405,8 @@ int main(int argc, char * argv[]){
     // write png_urls.txt
     // perform optional write to LOGFILE
     //write_results(logfile_name);
+
+    printf("done");
 
     return 0;
 }
