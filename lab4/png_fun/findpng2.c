@@ -175,34 +175,6 @@ int find_http(char *buf, int size, int follow_relative_links, const char *base_u
 
 
 // TODO: @Iman Hash table operations (ht_search_url and ht_add_url, maybe also add a ht_init?)
-
-typedef struct entry {
-    char* key; //url ascii-based key
-    void* data; //url
-} ENTRY;
-
-//hcreate and hdestroy in main
-
-int url_to_key(char * url){
-    size_t len = strlen(url);
-    int i = 0;
-    int asciival= 0;
-    int key = 0;
-    for (i = 0; i < len; i++){
-        asciival += url[i];
-    }
-    asciival = asciival/len;
-    index = asciival % 500;
-    return key;
-}
-
-char* intkey_to_charkey(int intkey){
-    //int key = url_to_key(char* url)
-    int buffer1;
-    char buffer2;
-    char* key = '\n';
-    return key;
-}
     // parses url string into a numerical representation (sum of ascii values) to be used as the key
     /*
     for length of url
@@ -215,11 +187,24 @@ char* intkey_to_charkey(int intkey){
     
     */
 
+typedef struct entry {
+    char* key; //url ascii-based key
+    void* data; //url
+} ENTRY;
+
+//hcreate and hdestroy in main
+
+char* url_to_key(char * url){
+    char* key = url;
+    return key;
+}
+
+
 int ht_search_url(char * url){
     // gets key from url, and invokes hsearch() with said key
     // return 1 if the url exists in the hash table, 0 otherwise
     ENTRY* temp_url = malloc(sizeof(ENTRY));
-    temp_url->key = intkey_to_charkey(url_to_key(url));
+    temp_url->key = url_to_key(url);
     temp_url->data = url;
 
     if (hsearch(temp_url, FIND) == NULL){
@@ -240,15 +225,12 @@ int ht_add_url(char * url){
     // for the hash table stuff)
 
     ENTRY* temp_url = malloc(sizeof(ENTRY));
-    temp_url->key = intkey_to_charkey(url_to_key(url));
+    temp_url->key = url_to_key(url);
     temp_url->data = url;
     int i = 1;
     result = -1; //default == error result
     if (errno != ENOMEM){
-        while(hsearch(temp_url, ENTER) == NULL){
-            temp_url->key = intkey_to_charkey((url_to_key(url)+i)%500);
-            i++;
-        }
+        temp_url->key = url_to_key(url);
         result = 1;
     }
     free(temp_url);
