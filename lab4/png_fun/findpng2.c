@@ -9,6 +9,7 @@
 #include <pthread.h>
 
 #include <getopt.h>
+#include <search.h>
 
 #include <libxml/HTMLparser.h>
 #include <libxml/parser.h>
@@ -173,24 +174,94 @@ int find_http(char *buf, int size, int follow_relative_links, const char *base_u
 
 
 
-// TODO: @<name_here> Hash table operations (ht_search_url and ht_add_url, maybe also add a ht_init?)
+// TODO: @Iman Hash table operations (ht_search_url and ht_add_url, maybe also add a ht_init?)
+
+typedef struct entry {
+    char* key; //url ascii-based key
+    void* data; //url
+} ENTRY;
+
+//hcreate and hdestroy in main
 
 int url_to_key(char * url){
-    // parses url string into a numerical representation (sum of ascii values) to be used as the key
-    return 0;
+    size_t len = strlen(url);
+    int i = 0;
+    int asciival= 0;
+    int key = 0;
+    for (i = 0; i < len; i++){
+        asciival += url[i];
+    }
+    asciival = asciival/len;
+    index = asciival % 500;
+    return key;
 }
+
+char* intkey_to_charkey(int intkey){
+    //int key = url_to_key(char* url)
+    int buffer1;
+    char buffer2;
+    char* key = '\n';
+    return key;
+}
+    // parses url string into a numerical representation (sum of ascii values) to be used as the key
+    /*
+    for length of url
+        get url character at index
+        convert to ascii
+        add to sum
+    divide by number of characters
+    mod 10 and store
+    add one and mod 10 and store
+    
+    */
 
 int ht_search_url(char * url){
     // gets key from url, and invokes hsearch() with said key
     // return 1 if the url exists in the hash table, 0 otherwise
-    return 0;
+    ENTRY* temp_url = malloc(sizeof(ENTRY));
+    temp_url->key = intkey_to_charkey(url_to_key(url));
+    temp_url->data = url;
+
+    if (hsearch(temp_url, FIND) == NULL){
+        //not found
+        free(temp_url);
+        //output errno
+        return 0;
+    } else {
+        free(temp_url);  
+        return 1;
+    }
+    free(temp_url);
+    return -1; //should not get here
 }
 
 int ht_add_url(char * url){
     // add a url to our hash table: get its key from its string url then set corresponding value (youre gonna have to check the hsearch(3) man page)
     // for the hash table stuff)
-    return 0;
+
+    ENTRY* temp_url = malloc(sizeof(ENTRY));
+    temp_url->key = intkey_to_charkey(url_to_key(url));
+    temp_url->data = url;
+    int i = 1;
+    result = -1; //default == error result
+    if (errno != ENOMEM){
+        while(hsearch(temp_url, ENTER) == NULL){
+            temp_url->key = intkey_to_charkey((url_to_key(url)+i)%500);
+            i++;
+        }
+        result = 1;
+    }
+    free(temp_url);
+    return result;
 }
+    /*
+    while ((hsearch(temp_url, ENTER) == NULL) && errno != ENOMEM){
+        temp_url->key = intkey_to_charkey((url_to_key(url)+i)%500);
+        i++;
+    }
+    free(temp_url);
+    return 0;*/
+
 
 // TODO: @<JASMINE> thread routine
 void *visit_url(void * arg){
@@ -256,11 +327,17 @@ int main(int argc, char * argv[]){
     int num_threads = 1;
     int num_pngs = 50;
     char* logfile_name = NULL;
+    
     // default to 1 thread looking for 50 pngs; no logging
 
     if(argc < 2){
         fprintf(stderr, "Incorrect arguments!\n");
         return -1;
+    }
+
+    if (hcreate(MAX_URLS) == 0){
+        printf("Visited URLs table could not be made!\n");
+        return errno;
     }
 
     printf("i'm in main!\n");
@@ -380,6 +457,6 @@ int main(int argc, char * argv[]){
     // write png_urls.txt
     // perform optional write to LOGFILE
     //write_results(logfile_name);
-
+    hdestroy();
     return 0;
 }
