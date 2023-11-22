@@ -15,6 +15,6 @@ typedef struct frontier_stack {
 
 int frontier_init(FRONTIER * frontier);
 int frontier_push(FRONTIER * frontier, char * incoming_url);
-int frontier_pop(FRONTIER * frontier, char * outgoing_url);
+char* frontier_pop(FRONTIER * frontier);
 int frontier_is_empty(FRONTIER * frontier);
 int frontier_is_full(FRONTIER * frontier);

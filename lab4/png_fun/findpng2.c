@@ -276,7 +276,7 @@ void *visit_url(void * arg){
     //while(){
         char* temp = NULL;
         pthread_mutex_lock(&frontier_lock);
-        frontier_pop(urls_frontier, temp);
+        temp = frontier_pop(urls_frontier);
         pthread_mutex_unlock(&frontier_lock);
 
         printf("%s\n", temp);

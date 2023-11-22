@@ -15,17 +15,24 @@ int frontier_push(FRONTIER * frontier, char * incoming_url){
         printf("Tried to push while frontiers is full! Something has gone terribly wrong!\n");
     }
     frontier->top++;
-    frontier->stack[frontier->top] = incoming_url;
+    frontier->stack[frontier->top] = strdup(incoming_url);
+    printf("push %d\n", frontier->top);
+    if (frontier->top > 4){
+        printf("index 4 %s\n", frontier->stack[4]);
+    }
     return 0;
 }
 
-int frontier_pop(FRONTIER * frontier, char * outgoing_url){
+char* frontier_pop(FRONTIER * frontier){
+    char * outgoing_url = NULL;
     if (frontier_is_empty(frontier)){
         printf("Tried to pop while frontiers is empty! Something has gone wrong!\n");
     }
-    outgoing_url = frontier->stack[frontier->top];
+    outgoing_url = strdup(frontier->stack[frontier->top]);
+    printf("pop %s\n", frontier->stack[frontier->top]);
+    printf("pop1 %s\n", outgoing_url);
     frontier->top--;
-    return 0;
+    return outgoing_url;
 }
 
 int frontier_is_empty(FRONTIER * frontier){
