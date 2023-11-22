@@ -11,6 +11,7 @@
 #include <getopt.h>
 #include <search.h>
 #include <errno.h>
+#include <stdatomic.h>
 
 #include <libxml/HTMLparser.h>
 #include <libxml/parser.h>
@@ -32,7 +33,7 @@
 FRONTIER * urls_frontier;
 char ** unique_pngs;    // this is a pointer to an array of pointers (where each item is a pointer to a char array (string)
 char** visited_urls; //for writing purposes
-int png_count = 0;
+atomic_int png_count = 0;
 char seed_url[256];
 int max_png = 50;
 
@@ -187,7 +188,7 @@ int find_http(char *buf, int size, int follow_relative_links, const char *base_u
             if ( href != NULL && !strncmp((const char *)href, "http", 4) ) {
                 pthread_mutex_lock(&ht_lock);
                 if(ht_search_url((char*)href) == 0){
-                    printf("this is a unique url: %s\n", href);
+                    printf("this is a unique url: %s\n", (char*)href);
                     ht_add_url((char*)href);
                     frontier_push(urls_frontier, (char*)href);
                 }
@@ -224,11 +225,9 @@ int process_png(CURL *curl_handle, DATA_BUF *recv_buf) {
         pthread_mutex_unlock(&ht_lock);
         // ^add the eurl to the ht
         printf("The PNG url is: %s\n", eurl);
-        // write to the log
+        png_count++;
     }
     return 0;
-    // return 0 regardless of whatever was passed was a png or not
-    // can modify this later to return some error code if the thing passed was not a url
 }
 
 int process_data(CURL *curl_handle, DATA_BUF *recv_buf) {
@@ -274,12 +273,23 @@ void *visit_url(void * arg){
     buf.size = 0;
     buf.seq = -1;
     //while(){
-        char* temp = NULL;
+        char *temp = NULL;
         pthread_mutex_lock(&frontier_lock);
         frontier_pop(urls_frontier, temp);
         pthread_mutex_unlock(&frontier_lock);
 
-        printf("%s\n", temp);
+        printf("POPPED %s\n", temp);
+        // CURL* curl_handle = easy_handle_init(&buf, temp);
+
+        // if(curl_handle == NULL){
+        //     return -1;
+        // }
+        // if(process_data(curl_handle, &buf) == 0){
+        //     // successful return
+
+        //     // add to the visited url array
+        // }
+        //printf("%s\n", temp);
         // FRONTIER LOCK
         // frontier_pop()
         // FRONTIER UNLOCK
