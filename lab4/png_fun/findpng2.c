@@ -18,6 +18,7 @@
 #include <libxml/uri.h>
 #include "findpng2.h"
 #include "frontier_stack.h"
+#include "hashtable.h"
 
 #define MAX_URLS 500
 #define ECE_252_HEADER "X-Ece252-Fragment: "
@@ -30,6 +31,7 @@
 // GLOBAL VARIABLES
 FRONTIER * urls_frontier;
 char ** unique_pngs;    // this is a pointer to an array of pointers (where each item is a pointer to a char array (string)
+char** visited_urls; //for writing purposes
 int png_count = 0;
 char seed_url[256];
 
@@ -380,7 +382,8 @@ void *visit_url(void * arg){
     //                                                                      there may be some synchronization effort required so that things terminate gracefully. see foot note (lol)
     // pop from frontiers, this url should be unvisited 
     // curl stuff, up to you
-    // ht_search_url()
+    // ht_search_url()\
+    // add url to visited_urls (table we're going to use to write into logfile [not the same as hashtable])
     // push onto stack if needed, add a new hash table entry etc etc
     // for pngs, lets add to the unique_pngs array
     // decrement frontiers counter (as we have now visited the url)
@@ -390,7 +393,7 @@ void *visit_url(void * arg){
     return NULL;
 }
 
-int write_results(char * logfile_name){
+int write_results(char * logfile_name){ //rewrite to append instead of write
     FILE *png_urls = fopen("png_urls.txt", "w");
     if (!png_urls) {
         perror("fopen");
@@ -411,9 +414,9 @@ int write_results(char * logfile_name){
     if (logfile_name != NULL){
         FILE *logfile = fopen(logfile_name, "w");
         for (int i = 0; i < MAX_URLS; i++){
-            /*if (hashtable[i] != NULL){        // this inefficient, easy workaround is just to create a seperate container (array) w/ an end index
-                fprintf(logfile, "%s\n", hashtable[i]);  // variable, and add to it everytime we find a unique url. if this causes time influence @ the end we can do the workaround
-            }*/
+            if (visited_urls[i] != NULL){        // this inefficient, easy workaround is just to create a seperate container (array) w/ an end index
+                fprintf(logfile, "%s\n", visited_urls[i]);  // variable, and add to it everytime we find a unique url. if this causes time influence @ the end we can do the workaround
+            }
         }
         fclose(logfile);
     }

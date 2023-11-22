@@ -21,7 +21,7 @@ int frontier_push(FRONTIER * frontier, char * incoming_url){
 
 int frontier_pop(FRONTIER * frontier, char * outgoing_url){
     if (frontier_is_empty(frontier)){
-        printf("Tried to pop while frontiers is full! Something has gone wrong!\n");
+        printf("Tried to pop while frontiers is empty! Something has gone wrong!\n");
     }
     frontier->top--;
     return 0;
