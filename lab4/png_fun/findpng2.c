@@ -52,9 +52,9 @@ int find_http(char *buf, int size, int follow_relative_links, const char *base_u
 int process_html(CURL *curl_handle, DATA_BUF *recv_buf);
 int process_png(CURL *curl_handle, DATA_BUF *recv_buf);
 int process_data(CURL *curl_handle, DATA_BUF *recv_buf);
-char* url_to_key(char * url);
-int ht_search_url(char * url);
-int ht_add_url(char * url);
+// char* url_to_key(char * url);
+// int ht_search_url(char * url);
+// int ht_add_url(char * url);
 
 // for storing data fetched from the curl calls
 
@@ -330,47 +330,47 @@ int process_data(CURL *curl_handle, DATA_BUF *recv_buf) {
 
 //hcreate and hdestroy in main
 
-char* url_to_key(char * url){
-    char* key = url;
-    return key;
-}
+// char* url_to_key(char * url){
+//     char* key = url;
+//     return key;
+// }
 
-int ht_search_url(char * url){
-    // gets key from url, and invokes hsearch() with said key
-    // return 1 if the url exists in the hash table, 0 otherwise
-    ENTRY* temp_url = malloc(sizeof(ENTRY));
-    temp_url->key = url_to_key(url);
-    temp_url->data = url;
+// int ht_search_url(char * url){
+//     // gets key from url, and invokes hsearch() with said key
+//     // return 1 if the url exists in the hash table, 0 otherwise
+//     ENTRY* temp_url = malloc(sizeof(ENTRY));
+//     temp_url->key = url_to_key(url);
+//     temp_url->data = url;
 
-    if (hsearch(*temp_url, FIND) == NULL){
-        //not found
-        free(temp_url);
-        //output errno
-        return 0;
-    } else {
-        free(temp_url);  
-        return 1;
-    }
-    free(temp_url);
-    return -1; //should not get here
-}
+//     if (hsearch(*temp_url, FIND) == NULL){
+//         //not found
+//         free(temp_url);
+//         //output errno
+//         return 0;
+//     } else {
+//         free(temp_url);  
+//         return 1;
+//     }
+//     free(temp_url);
+//     return -1; //should not get here
+// }
 
-int ht_add_url(char * url){
-    // add a url to our hash table: get its key from its string url then set corresponding value (youre gonna have to check the hsearch(3) man page)
-    // for the hash table stuff)
+// int ht_add_url(char * url){
+//     // add a url to our hash table: get its key from its string url then set corresponding value (youre gonna have to check the hsearch(3) man page)
+//     // for the hash table stuff)
 
-    ENTRY* temp_url = malloc(sizeof(ENTRY));
-    temp_url->key = url_to_key(url);
-    temp_url->data = url;
-    // int i = 1;
-    int result = -1; //default == error result
-    if (errno != ENOMEM){
-        temp_url->key = url_to_key(url);
-        result = 1;
-    }
-    free(temp_url);
-    return result;
-}
+//     ENTRY* temp_url = malloc(sizeof(ENTRY));
+//     temp_url->key = url_to_key(url);
+//     temp_url->data = url;
+//     // int i = 1;
+//     int result = -1; //default == error result
+//     if (errno != ENOMEM){
+//         temp_url->key = url_to_key(url);
+//         result = 1;
+//     }
+//     free(temp_url);
+//     return result;
+// }
 
 
 // TODO: @<JASMINE> thread routine
@@ -382,7 +382,7 @@ void *visit_url(void * arg){
     //                                                                      there may be some synchronization effort required so that things terminate gracefully. see foot note (lol)
     // pop from frontiers, this url should be unvisited 
     // curl stuff, up to you
-    // ht_search_url()\
+    // ht_search_url()
     // add url to visited_urls (table we're going to use to write into logfile [not the same as hashtable])
     // push onto stack if needed, add a new hash table entry etc etc
     // for pngs, lets add to the unique_pngs array
