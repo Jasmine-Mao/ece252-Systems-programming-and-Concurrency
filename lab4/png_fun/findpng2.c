@@ -35,6 +35,8 @@ char** visited_urls; //for writing purposes
 int png_count = 0;
 char seed_url[256];
 
+pthread_mutex_t ht_lock;
+
 typedef struct data_buf {
     char* buf;
     size_t size;
@@ -198,14 +200,18 @@ int find_http(char *buf, int size, int follow_relative_links, const char *base_u
                 xmlFree(old);
             }
             if ( href != NULL && !strncmp((const char *)href, "http", 4) ) {
+                pthread_mutex_lock(&ht_lock);
+                // lock when we read and write to the ht
                 if(ht_search_url((char*)href) == 0){
                     // get here if the link IS NOT IN THE HASH TABLE
                     printf("this is a unique url: %s\n", href);
                     ht_add_url((char*)href);
                 }
                 else{
-                    printf("ALREADY IN THE HT >:(\n");
+                    printf("ALREADY IN THE HT: %s \n", href);
                 }
+                pthread_mutex_unlock(&ht_lock);
+
                 // printf("href: %s\n", href);
                 // ADD TO THE HASHTABLE
 
@@ -322,56 +328,6 @@ int process_data(CURL *curl_handle, DATA_BUF *recv_buf) {
     add one and mod 10 and store
     
     */
-
-// typedef struct entry {
-//     char* key; //url ascii-based key
-//     void* data; //url
-// } ENTRY;
-
-//hcreate and hdestroy in main
-
-// char* url_to_key(char * url){
-//     char* key = url;
-//     return key;
-// }
-
-// int ht_search_url(char * url){
-//     // gets key from url, and invokes hsearch() with said key
-//     // return 1 if the url exists in the hash table, 0 otherwise
-//     ENTRY* temp_url = malloc(sizeof(ENTRY));
-//     temp_url->key = url_to_key(url);
-//     temp_url->data = url;
-
-//     if (hsearch(*temp_url, FIND) == NULL){
-//         //not found
-//         free(temp_url);
-//         //output errno
-//         return 0;
-//     } else {
-//         free(temp_url);  
-//         return 1;
-//     }
-//     free(temp_url);
-//     return -1; //should not get here
-// }
-
-// int ht_add_url(char * url){
-//     // add a url to our hash table: get its key from its string url then set corresponding value (youre gonna have to check the hsearch(3) man page)
-//     // for the hash table stuff)
-
-//     ENTRY* temp_url = malloc(sizeof(ENTRY));
-//     temp_url->key = url_to_key(url);
-//     temp_url->data = url;
-//     // int i = 1;
-//     int result = -1; //default == error result
-//     if (errno != ENOMEM){
-//         temp_url->key = url_to_key(url);
-//         result = 1;
-//     }
-//     free(temp_url);
-//     return result;
-// }
-
 
 // TODO: @<JASMINE> thread routine
 void *visit_url(void * arg){
@@ -499,6 +455,8 @@ int main(int argc, char * argv[]){
     frontier_init(urls_frontier);
 
     unique_pngs = malloc(num_pngs * sizeof(char *));
+
+    pthread_mutex_init(&ht_lock, NULL);
 
     // MAIN STARTS THE INITIAL CURL WITH THE SEED URL
 
