@@ -206,6 +206,8 @@ int find_http(char *buf, int size, int follow_relative_links, const char *base_u
                     // get here if the link IS NOT IN THE HASH TABLE
                     printf("this is a unique url: %s\n", href);
                     ht_add_url((char*)href);
+                    // add url to the frontier
+                    frontier_push(urls_frontier, (char*)href);
                 }
                 else{
                     printf("ALREADY IN THE HT: %s \n", href);
@@ -331,8 +333,21 @@ int process_data(CURL *curl_handle, DATA_BUF *recv_buf) {
 
 // TODO: @<JASMINE> thread routine
 void *visit_url(void * arg){
+    DATA_BUF buf;
+    buf.max_size = 1048576; // WHAT SHOULD THE MAX SIZE BE?
+    buf.buf = malloc(1048576);
+    buf.size = 0;
+    buf.seq = -1;
+    while(/*some condition*/){
+        // frontier_pop()
 
-    // CURL *curl_handle = curl_easy_init();
+        CURL* curl_handle - easy_handle_init(buf, /*URL THAT WE POPPED OFF THE FRONTIER*/)
+        if(curl_handle == 0){
+            break;
+        }
+        process_data(curl_handle, buf);
+        curl_easy_cleanup(curl_handle);
+    }
     
     // while frontiers_counter is non zero or while our png counter < M <-- IMPORTANT: im not sure if this implementation is sound! 
     //                                                                      there may be some synchronization effort required so that things terminate gracefully. see foot note (lol)
