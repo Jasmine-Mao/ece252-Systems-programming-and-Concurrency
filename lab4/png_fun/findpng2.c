@@ -56,11 +56,6 @@ int find_http(char *buf, int size, int follow_relative_links, const char *base_u
 int process_html(CURL *curl_handle, DATA_BUF *recv_buf);
 int process_png(CURL *curl_handle, DATA_BUF *recv_buf);
 int process_data(CURL *curl_handle, DATA_BUF *recv_buf);
-// char* url_to_key(char * url);
-// int ht_search_url(char * url);
-// int ht_add_url(char * url);
-
-// for storing data fetched from the curl calls
 
 // TODO: @<JASMINE> curl callbacks!
 
@@ -73,7 +68,6 @@ size_t header_write_callback(char* recv, size_t size, size_t nmemb, void* user_d
     if(real_size > strlen(ECE_252_HEADER) &&  strncmp(recv, ECE_252_HEADER, strlen(ECE_252_HEADER))){
         data_fetched->seq = atoi(recv + strlen(ECE_252_HEADER));
     }
-
     return real_size;
 }
 
@@ -96,7 +90,6 @@ CURL *easy_handle_init(DATA_BUF *ptr, const char *url)
 
     if ( ptr == NULL || url == NULL) {
         return NULL;
-        // PTR PASSED IS THE DATA_BUF WHICH WILL HOLD ALL THE CURLED STUFF
     }
 
     /* init a curl session */
@@ -155,14 +148,8 @@ xmlXPathObjectPtr getnodeset (xmlDocPtr doc, xmlChar *xpath)
         return NULL;
     }
     result = xmlXPathEvalExpression(xpath, context);
-    // expression is the name of files in a directory
-    //      they can be names of nodes, /, //, ., .., etc
-
-    // context: "The context path refers to the location relative to the server's address which represents the name of the web application"
-    // new copntexr function needs to have the context freed after, which is below
     xmlXPathFreeContext(context);
     if (result == NULL) {
-        // BAD, DON'T WANT TO GET HERE
         printf("Error in xmlXPathEvalExpression\n");
         return NULL;
     }
@@ -175,7 +162,6 @@ xmlXPathObjectPtr getnodeset (xmlDocPtr doc, xmlChar *xpath)
 }
 
 int find_http(char *buf, int size, int follow_relative_links, const char *base_url) {
-    // finds the links in a doc; based off the base url
     int i;
     htmlDocPtr doc;
     xmlChar *xpath = (xmlChar*) "//a/@href";
@@ -188,27 +174,21 @@ int find_http(char *buf, int size, int follow_relative_links, const char *base_u
     }
 
     doc = mem_getdoc(buf, size, base_url);
-    // gets the html file that we need to actually look at
-    // creates a text file with the html code, links are taken from it and just output raw
     result = getnodeset (doc, xpath);
     if (result) {
-        // IF THE GET NODE SET CALL WAS SUCCESSFUL
         nodeset = result->nodesetval;
         for (i=0; i < nodeset->nodeNr; i++) {
             href = xmlNodeListGetString(doc, nodeset->nodeTab[i]->xmlChildrenNode, 1);
-            if ( follow_relative_links ) { // if we say yes, we want to follow relative links, go here --> i think we will want to follow these relative paths too
+            if ( follow_relative_links ) {
                 xmlChar *old = href;
-                href = xmlBuildURI(href, (xmlChar *) base_url); // stitches together the relative url to make a full, absolute path
+                href = xmlBuildURI(href, (xmlChar *) base_url); 
                 xmlFree(old);
             }
             if ( href != NULL && !strncmp((const char *)href, "http", 4) ) {
                 pthread_mutex_lock(&ht_lock);
-                // lock when we read and write to the ht
                 if(ht_search_url((char*)href) == 0){
-                    // get here if the link IS NOT IN THE HASH TABLE
                     printf("this is a unique url: %s\n", href);
                     ht_add_url((char*)href);
-                    // add url to the frontier
                     frontier_push(urls_frontier, (char*)href);
                 }
                 else{
@@ -226,26 +206,22 @@ int find_http(char *buf, int size, int follow_relative_links, const char *base_u
 }
 
 int process_html(CURL *curl_handle, DATA_BUF *recv_buf) {
-    // COME HERE IF THE THING WE GOT FROM A URL IS ANOTHER HTML PAGE
-    // char fname[256];
     int follow_relative_link = 1;
     char *url = NULL; 
-    // pid_t pid =getpid();
 
     curl_easy_getinfo(curl_handle, CURLINFO_EFFECTIVE_URL, &url);
     return find_http(recv_buf->buf, recv_buf->size, follow_relative_link, url); 
-    // MODIFIED TO RETURN THE SUCCESS STATUS OF THE FIND_HTTP CALL
     }
 
 int process_png(CURL *curl_handle, DATA_BUF *recv_buf) {
-    // pid_t pid =getpid();
-    // char fname[256];
-    char *eurl = NULL;          /* effective URL */
+    char *eurl = NULL;
     curl_easy_getinfo(curl_handle, CURLINFO_EFFECTIVE_URL, &eurl);
     
-    if ( (eurl != NULL) && (ht_search_url(eurl) == 0)/*&& IS_PNG && NOT ALREADY IN HASH TABLE*/) {
+    if ((eurl != NULL) && (ht_search_url(eurl) == 0) && (recv_buf->seq != -1)) {
         // here is erul is not null AND the url is not already in the ht AND the thing passed is a png
+        pthread_mutex_lock(&ht_lock);
         ht_add_url(eurl);
+        pthread_mutex_unlock(&ht_lock);
         // ^add the eurl to the ht
         printf("The PNG url is: %s\n", eurl);
         // write to the log
@@ -262,15 +238,11 @@ int process_data(CURL *curl_handle, DATA_BUF *recv_buf) {
     long response_code;
 
     res = curl_easy_getinfo(curl_handle, CURLINFO_RESPONSE_CODE, &response_code);
-    // see for response codes: https://everything.curl.dev/http/response
     if ( res == CURLE_OK ) {
 	    printf("Response code: %ld\n", response_code);
     }
 
-    if ( response_code >= 400 ) { 
-        // 4xx: the client asked for something the server could not or would not deliver
-        // 5xx: there is a problem in the server
-            // basically errors
+    if ( response_code >= 400 ) {
     	fprintf(stderr, "Error.\n");
         return 1;
     }
@@ -279,20 +251,17 @@ int process_data(CURL *curl_handle, DATA_BUF *recv_buf) {
     res = curl_easy_getinfo(curl_handle, CURLINFO_CONTENT_TYPE, &ct);
     if ( res == CURLE_OK && ct != NULL ) {
     	printf("Content-Type: %s, len=%ld\n", ct, strlen(ct));
-        // ^print can eventually be removed
     } else {
         fprintf(stderr, "Failed obtain Content-Type\n");
         return 2;
     }
 
-    if ( strstr(ct, CT_HTML) ) {    // finds first occurence of CT_HTML in ct; returns a pointer to the first occurence in ct if successful
+    if ( strstr(ct, CT_HTML) ) { 
         printf("FOUND AN HTML PAGE!!\n");
         return process_html(curl_handle, recv_buf);
-        // this is if the thing we have passed gets an html page --> grab all the stuff from the html page and pass them to the hash table
     } else if ( strstr(ct, CT_PNG) ) {
         printf("FOUND A PNG!!\n");
         return process_png(curl_handle, recv_buf);
-        // this is a png
     }
     return 0;
 }
@@ -304,18 +273,24 @@ void *visit_url(void * arg){
     buf.buf = malloc(1048576);
     buf.size = 0;
     buf.seq = -1;
-    // while(/*some condition*/){
-    //     // FRONTIER LOCK
-    //     // frontier_pop()
-    //     // FRONTIER UNLOCK
-    //     // add to visited url array
+    //while(){
+        char* temp = NULL;
+        pthread_mutex_lock(&frontier_lock);
+        frontier_pop(urls_frontier, temp);
+        pthread_mutex_unlock(&frontier_lock);
 
-    //     CURL* curl_handle - easy_handle_init(buf, /*URL THAT WE POPPED OFF THE FRONTIER*/)
-    //     if(curl_handle == 0){
-    //         break;
-    //     }
-    //     process_data(curl_handle, buf);
-    // }
+        printf("%s\n", temp);
+        // FRONTIER LOCK
+        // frontier_pop()
+        // FRONTIER UNLOCK
+        // add to visited url array
+
+        // CURL* curl_handle - easy_handle_init(buf, /*URL THAT WE POPPED OFF THE FRONTIER*/)
+        // if(curl_handle == 0){
+        //     break;
+        // }
+        // process_data(curl_handle, buf);
+    //}
 
     
     // while frontiers_counter is non zero or while our png counter < M <-- IMPORTANT: im not sure if this implementation is sound! 
@@ -330,7 +305,7 @@ void *visit_url(void * arg){
 
     
 
-    return NULL;
+    return 0;
 }
 
 int write_results(char * logfile_name){ //rewrite to append instead of write
@@ -440,9 +415,11 @@ int main(int argc, char * argv[]){
     frontier_init(urls_frontier);
 
     unique_pngs = malloc(max_png * sizeof(char *));
+    // list of png links
 
     pthread_mutex_init(&ht_lock, NULL);
     pthread_mutex_init(&frontier_lock, NULL);
+    // make a unique png mutex
     // INIT ALL MUTEXES
 
     // MAIN STARTS THE INITIAL CURL WITH THE SEED URL
@@ -474,27 +451,31 @@ int main(int argc, char * argv[]){
     if(res == CURLE_OK){
         printf("successfully curled. starting threads...\n");
         process_data(curl_handle, &buf);
-        if (num_threads == 1){
-            visit_url(NULL);
-        }
-        else{
-            pthread_t threads[num_threads];
-            int threads_res[num_threads];
-            for (int i = 0; i < num_threads; i++){
-                threads_res[i] = pthread_create(threads + i, NULL, visit_url, NULL);
-            }
-            // C O N D I T I O N A L  F O R  K I L L I N G  T H R E A D S
+        process_data(curl_handle, &buf);
+        visit_url(NULL);
 
-            for (int i = 0; i < num_threads; i++){
-                if (threads_res[i] == 0){
-                    pthread_join(threads[i], NULL);
-                }
-            }
-        }
+        // if (num_threads == 1){
+        //     visit_url(NULL);
+        // }
+        // else{
+        //     pthread_t threads[num_threads];
+        //     int threads_res[num_threads];
+        //     for (int i = 0; i < num_threads; i++){
+        //         threads_res[i] = pthread_create(threads + i, NULL, visit_url, NULL);
+        //     }
+        //     // C O N D I T I O N A L  F O R  K I L L I N G  T H R E A D S
+
+        //     for (int i = 0; i < num_threads; i++){
+        //         if (threads_res[i] == 0){
+        //             pthread_join(threads[i], NULL);
+        //         }
+        //     }
+        // }
     }
     else{
         return -1;
     }
+
     curl_easy_cleanup(curl_handle);
 
     free(urls_frontier->stack);
@@ -502,13 +483,12 @@ int main(int argc, char * argv[]){
     
     hdestroy();
     write_results(logfile_name);
-
     free(unique_pngs);
-    int p = 0;
-    for (p = 0; p < 500; p++){
-        free(visited_urls[p]);
-    }
+
     free(visited_urls);
+
+    pthread_mutex_destroy(&ht_lock);
+    pthread_mutex_destroy(&frontier_lock);
 
     printf("done\n");
 
