@@ -7,16 +7,16 @@
 #include <unistd.h>
 #include <curl/curl.h>
 #include <pthread.h>
-
 #include <getopt.h>
 #include <search.h>
 
 #include <libxml/HTMLparser.h>
 #include <libxml/parser.h>
 #include <libxml/xpath.h>
-#include <libxml/uri.h>
+#include <libxml/uri.h> 
 #include "findpng2.h"
 #include "frontier_stack.h"
+#include "hashtable.h"
 
 #define MAX_URLS 500
 #define ECE_252_HEADER "X-Ece252-Fragment: "
@@ -29,6 +29,7 @@
 // GLOBAL VARIABLES
 FRONTIER * urls_frontier;
 char ** unique_pngs;    // this is a pointer to an array of pointers (where each item is a pointer to a char array (string)
+char** visited_urls; //for writing purposes
 int png_count = 0;
 char seed_url[256];
 
@@ -160,95 +161,6 @@ int find_http(char *buf, int size, int follow_relative_links, const char *base_u
     return 0;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// TODO: @Iman Hash table operations (ht_search_url and ht_add_url, maybe also add a ht_init?)
-    // parses url string into a numerical representation (sum of ascii values) to be used as the key
-    /*
-    for length of url
-        get url character at index
-        convert to ascii
-        add to sum
-    divide by number of characters
-    mod 10 and store
-    add one and mod 10 and store
-    
-    */
-
-typedef struct entry {
-    char* key; //url ascii-based key
-    void* data; //url
-} ENTRY;
-
-//hcreate and hdestroy in main
-
-char* url_to_key(char * url){
-    char* key = url;
-    return key;
-}
-
-
-int ht_search_url(char * url){
-    // gets key from url, and invokes hsearch() with said key
-    // return 1 if the url exists in the hash table, 0 otherwise
-    ENTRY* temp_url = malloc(sizeof(ENTRY));
-    temp_url->key = url_to_key(url);
-    temp_url->data = url;
-
-    if (hsearch(temp_url, FIND) == NULL){
-        //not found
-        free(temp_url);
-        //output errno
-        return 0;
-    } else {
-        free(temp_url);  
-        return 1;
-    }
-    free(temp_url);
-    return -1; //should not get here
-}
-
-int ht_add_url(char * url){
-    // add a url to our hash table: get its key from its string url then set corresponding value (youre gonna have to check the hsearch(3) man page)
-    // for the hash table stuff)
-
-    ENTRY* temp_url = malloc(sizeof(ENTRY));
-    temp_url->key = url_to_key(url);
-    temp_url->data = url;
-    int i = 1;
-    result = -1; //default == error result
-    if (errno != ENOMEM){
-        temp_url->key = url_to_key(url);
-        result = 1;
-    }
-    free(temp_url);
-    return result;
-}
-    /*
-    while ((hsearch(temp_url, ENTER) == NULL) && errno != ENOMEM){
-        temp_url->key = intkey_to_charkey((url_to_key(url)+i)%500);
-        i++;
-    }
-    free(temp_url);
-    return 0;*/
-
-
 // TODO: @<JASMINE> thread routine
 void *visit_url(void * arg){
 
@@ -258,7 +170,8 @@ void *visit_url(void * arg){
     //                                                                      there may be some synchronization effort required so that things terminate gracefully. see foot note (lol)
     // pop from frontiers, this url should be unvisited 
     // curl stuff, up to you
-    // ht_search_url()
+    // ht_search_url()\
+    // add url to visited_urls (table we're going to use to write into logfile [not the same as hashtable])
     // push onto stack if needed, add a new hash table entry etc etc
     // for pngs, lets add to the unique_pngs array
     // decrement frontiers counter (as we have now visited the url)
@@ -268,7 +181,7 @@ void *visit_url(void * arg){
     return NULL;
 }
 
-int write_results(char * logfile_name){
+int write_results(char * logfile_name){ //rewrite to append instead of write
     FILE *png_urls = fopen("png_urls.txt", "w");
     if (!png_urls) {
         perror("fopen");
@@ -289,9 +202,9 @@ int write_results(char * logfile_name){
     if (logfile_name != NULL){
         FILE *logfile = fopen(logfile_name, "w");
         for (int i = 0; i < MAX_URLS; i++){
-            /*if (hashtable[i] != NULL){        // this inefficient, easy workaround is just to create a seperate container (array) w/ an end index
-                fprintf(logfile, "%s\n", hashtable[i]);  // variable, and add to it everytime we find a unique url. if this causes time influence @ the end we can do the workaround
-            }*/
+            if (visited_urls[i] != NULL){        // this inefficient, easy workaround is just to create a seperate container (array) w/ an end index
+                fprintf(logfile, "%s\n", visited_urls[i]);  // variable, and add to it everytime we find a unique url. if this causes time influence @ the end we can do the workaround
+            }
         }
         fclose(logfile);
     }
