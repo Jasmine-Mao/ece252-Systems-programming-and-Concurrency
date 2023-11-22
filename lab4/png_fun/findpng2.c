@@ -391,6 +391,8 @@ int main(int argc, char * argv[]){
         return errno;
     }
 
+    visited_urls = malloc(sizeof(char*)*500);
+
     /*OPTION STUFF*/
     while((c = getopt(argc, argv, "t:m:v:")) != -1){
         switch (c)
@@ -502,6 +504,11 @@ int main(int argc, char * argv[]){
     write_results(logfile_name);
 
     free(unique_pngs);
+    int p = 0;
+    for (p = 0; p < 500; p++){
+        free(visited_urls[p]);
+    }
+    free(visited_urls);
 
     printf("done\n");
 

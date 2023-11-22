@@ -23,6 +23,7 @@ int frontier_pop(FRONTIER * frontier, char * outgoing_url){
     if (frontier_is_empty(frontier)){
         printf("Tried to pop while frontiers is empty! Something has gone wrong!\n");
     }
+    outgoing_url = frontier->stack[frontier->top];
     frontier->top--;
     return 0;
 }
