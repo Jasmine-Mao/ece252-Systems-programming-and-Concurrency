@@ -11,7 +11,16 @@
     divide by number of characters
     mod 10 and store
     add one and mod 10 and store
-    
+        size_t len = strlen(url);
+    size_t i;
+    int asciival = 0;
+    char* key = url;
+    for (i = 0; i < len; i ++){
+        asciival = url[i];
+        printf("%d", asciival);
+        key[i] = (char) (asciival);
+    }
+    return key;
     */
 //hcreate and hdestroy in main
 
@@ -24,9 +33,9 @@ int ht_search_url(char * url){
     // gets key from url, and invokes hsearch() with said key
     // return 1 if the url exists in the hash table, 0 otherwise
     ENTRY temp_url;
-    temp_url.key = url_to_key(url);
-    temp_url.data = url;
-
+    temp_url.key = strdup(url_to_key(url));
+    temp_url.data = strdup(url);
+    //printf("key: %s\n", temp_url.key);
     if (hsearch(temp_url, FIND) == NULL){
         //not found
         //output errno
@@ -42,16 +51,15 @@ int ht_add_url(char * url){ //add logfile name, if logfile not null then call wr
     // for the hash table stuff)
 
     ENTRY temp_url;
-    temp_url.key = url_to_key(url);
-    temp_url.data = url;
-    int result = -1; //default == error result
+    temp_url.key = strdup(url_to_key(url));
+    temp_url.data = strdup(url);
+
     if (errno != ENOMEM){
-        temp_url.key = url_to_key(url);
-        if(hsearch(temp_url, ENTER)){
-            result = 1;
+        if(hsearch(temp_url, ENTER) != NULL){
+            return 1;
         }
     }
-    return result;
+    return 0;
 }
     /*
     while ((hsearch(temp_url, ENTER) == NULL) && errno != ENOMEM){
