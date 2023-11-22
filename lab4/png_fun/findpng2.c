@@ -34,8 +34,10 @@ char ** unique_pngs;    // this is a pointer to an array of pointers (where each
 char** visited_urls; //for writing purposes
 int png_count = 0;
 char seed_url[256];
+int max_png = 50;
 
 pthread_mutex_t ht_lock;
+pthread_mutex_t frontier_lock;
 
 typedef struct data_buf {
     char* buf;
@@ -213,14 +215,6 @@ int find_http(char *buf, int size, int follow_relative_links, const char *base_u
                     printf("ALREADY IN THE HT: %s \n", href);
                 }
                 pthread_mutex_unlock(&ht_lock);
-
-                // printf("href: %s\n", href);
-                // ADD TO THE HASHTABLE
-
-
-                // here is where the url printing actually happens
-                // makes sure that the href passed is an http, then prints it out
-                // this can be modified to add to the frontier buf/stack/queue however we end up implementing it
             }
             xmlFree(href);
         }
@@ -241,12 +235,6 @@ int process_html(CURL *curl_handle, DATA_BUF *recv_buf) {
     curl_easy_getinfo(curl_handle, CURLINFO_EFFECTIVE_URL, &url);
     return find_http(recv_buf->buf, recv_buf->size, follow_relative_link, url); 
     // MODIFIED TO RETURN THE SUCCESS STATUS OF THE FIND_HTTP CALL
-
-        // this is where we get all the links
-        // can modify this to be called elsewhere by threads
-    // sprintf(fname, "./output_%d.html", pid);
-    //     // outputs the html stuff to a file
-    // return write_file(fname, p_recv_buf->buf, p_recv_buf->size);
     }
 
 int process_png(CURL *curl_handle, DATA_BUF *recv_buf) {
@@ -254,15 +242,12 @@ int process_png(CURL *curl_handle, DATA_BUF *recv_buf) {
     // char fname[256];
     char *eurl = NULL;          /* effective URL */
     curl_easy_getinfo(curl_handle, CURLINFO_EFFECTIVE_URL, &eurl);
-        // gets the effective url from the curl handle
-        // effective URL is the last used url
-            // see: https://curl.se/libcurl/c/curl_easy_getinfo.html
-        // puts the last used url into the eurl pointer
-            // if there was a last used url print out the below text
-    if ( eurl != NULL /*&& IS_PNG*/) {
-        // here is is a png and effective url is not null
+    
+    if ( (eurl != NULL) && (ht_search_url(eurl) == 0)/*&& IS_PNG && NOT ALREADY IN HASH TABLE*/) {
+        // here is erul is not null AND the url is not already in the ht AND the thing passed is a png
+        ht_add_url(eurl);
+        // ^add the eurl to the ht
         printf("The PNG url is: %s\n", eurl);
-        // add link to hash table
         // write to the log
     }
     return 0;
@@ -292,10 +277,9 @@ int process_data(CURL *curl_handle, DATA_BUF *recv_buf) {
 
     char *ct = NULL;
     res = curl_easy_getinfo(curl_handle, CURLINFO_CONTENT_TYPE, &ct);
-        // return content type header
-        // should be text/html if we got to an html text page i think?
     if ( res == CURLE_OK && ct != NULL ) {
     	printf("Content-Type: %s, len=%ld\n", ct, strlen(ct));
+        // ^print can eventually be removed
     } else {
         fprintf(stderr, "Failed obtain Content-Type\n");
         return 2;
@@ -307,29 +291,11 @@ int process_data(CURL *curl_handle, DATA_BUF *recv_buf) {
         // this is if the thing we have passed gets an html page --> grab all the stuff from the html page and pass them to the hash table
     } else if ( strstr(ct, CT_PNG) ) {
         printf("FOUND A PNG!!\n");
-        //return process_png(curl_handle, p_recv_buf);
+        return process_png(curl_handle, recv_buf);
         // this is a png
-    } 
-    // else {
-    //     sprintf(fname, "./output_%d", pid);
-    // }
-
-    // return write_file(fname, p_recv_buf->buf, p_recv_buf->size);
+    }
     return 0;
 }
-
-// TODO: @Iman Hash table operations (ht_search_url and ht_add_url, maybe also add a ht_init?)
-    // parses url string into a numerical representation (sum of ascii values) to be used as the key
-    /*
-    for length of url
-        get url character at index
-        convert to ascii
-        add to sum
-    divide by number of characters
-    mod 10 and store
-    add one and mod 10 and store
-    
-    */
 
 // TODO: @<JASMINE> thread routine
 void *visit_url(void * arg){
@@ -338,16 +304,19 @@ void *visit_url(void * arg){
     buf.buf = malloc(1048576);
     buf.size = 0;
     buf.seq = -1;
-    while(/*some condition*/){
-        // frontier_pop()
+    // while(/*some condition*/){
+    //     // FRONTIER LOCK
+    //     // frontier_pop()
+    //     // FRONTIER UNLOCK
+    //     // add to visited url array
 
-        CURL* curl_handle - easy_handle_init(buf, /*URL THAT WE POPPED OFF THE FRONTIER*/)
-        if(curl_handle == 0){
-            break;
-        }
-        process_data(curl_handle, buf);
-        curl_easy_cleanup(curl_handle);
-    }
+    //     CURL* curl_handle - easy_handle_init(buf, /*URL THAT WE POPPED OFF THE FRONTIER*/)
+    //     if(curl_handle == 0){
+    //         break;
+    //     }
+    //     process_data(curl_handle, buf);
+    // }
+
     
     // while frontiers_counter is non zero or while our png counter < M <-- IMPORTANT: im not sure if this implementation is sound! 
     //                                                                      there may be some synchronization effort required so that things terminate gracefully. see foot note (lol)
@@ -408,7 +377,6 @@ int main(int argc, char * argv[]){
     curl_global_init(CURL_GLOBAL_DEFAULT);
     int c;
     int num_threads = 1;
-    int num_pngs = 50;
     char* logfile_name = NULL;
     
     // default to 1 thread looking for 50 pngs; no logging
@@ -437,12 +405,12 @@ int main(int argc, char * argv[]){
             break;
         
         case 'm':
-            num_pngs = strtoul(optarg, NULL, 10);
-            if(num_pngs <= 0){
+            max_png = strtoul(optarg, NULL, 10);
+            if(max_png <= 0){
                 printf("please enter valid number of max images\n");
                 return -1;
             }
-            printf("arg passed for num images: %d\n", num_pngs);
+            printf("arg passed for num images: %d\n", max_png);
             break;
         case 'v':
             //memcpy(log_file, optarg, strlen(optarg));
@@ -469,9 +437,11 @@ int main(int argc, char * argv[]){
     urls_frontier = malloc(sizeof(FRONTIER));
     frontier_init(urls_frontier);
 
-    unique_pngs = malloc(num_pngs * sizeof(char *));
+    unique_pngs = malloc(max_png * sizeof(char *));
 
     pthread_mutex_init(&ht_lock, NULL);
+    pthread_mutex_init(&frontier_lock, NULL);
+    // INIT ALL MUTEXES
 
     // MAIN STARTS THE INITIAL CURL WITH THE SEED URL
 
@@ -502,24 +472,23 @@ int main(int argc, char * argv[]){
     if(res == CURLE_OK){
         printf("successfully curled. starting threads...\n");
         process_data(curl_handle, &buf);
-        process_data(curl_handle, &buf);
-        // if (num_threads == 1){
-        //     visit_url(NULL);
-        // }
-        // else{
-        //     pthread_t threads[num_threads];
-        //     int threads_res[num_threads];
-        //     for (int i = 0; i < num_threads; i++){
-        //         threads_res[i] = pthread_create(threads + i, NULL, visit_url, NULL);
-        //     }
-        //     // C O N D I T I O N A L  F O R  K I L L I N G  T H R E A D S
+        if (num_threads == 1){
+            visit_url(NULL);
+        }
+        else{
+            pthread_t threads[num_threads];
+            int threads_res[num_threads];
+            for (int i = 0; i < num_threads; i++){
+                threads_res[i] = pthread_create(threads + i, NULL, visit_url, NULL);
+            }
+            // C O N D I T I O N A L  F O R  K I L L I N G  T H R E A D S
 
-        //     for (int i = 0; i < num_threads; i++){
-        //         if (threads_res[i] == 0){
-        //             pthread_join(threads[i], NULL);
-        //         }
-        //     }
-        // }
+            for (int i = 0; i < num_threads; i++){
+                if (threads_res[i] == 0){
+                    pthread_join(threads[i], NULL);
+                }
+            }
+        }
     }
     else{
         return -1;
