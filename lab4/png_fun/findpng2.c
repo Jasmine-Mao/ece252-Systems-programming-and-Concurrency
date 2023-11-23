@@ -454,7 +454,8 @@ int main(int argc, char * argv[]){
     urls_frontier = malloc(sizeof(FRONTIER));
     frontier_init(urls_frontier);
 
-    unique_pngs = malloc(max_png * sizeof(char *));
+    // printf("%ld", sizeof(char*) * max_png);
+    unique_pngs = malloc(sizeof(char*) * 50);
 
     pthread_mutex_init(&ht_lock, NULL);
     pthread_mutex_init(&frontier_lock, NULL);
@@ -490,7 +491,6 @@ int main(int argc, char * argv[]){
         curl_easy_cleanup(curl_handle);
 
         visited_urls[num_urls_visited] = seed_url;
-        // printf("%s\n", visited_urls[num_urls_visited]);
         num_urls_visited++;
 
         // THREADS STUFF STARTS HERE
@@ -501,19 +501,18 @@ int main(int argc, char * argv[]){
         }
         // C O N D I T I O N A L  F O R  K I L L I N G  T H R E A D S
         pthread_mutex_lock(&threads_lock);
+
         pthread_cond_wait(&kill_threads_cond, &threads_lock);
         THREADS_STOP = 1;
         pthread_mutex_unlock(&threads_lock);
 
         printf("CLEANING EVERYTHING UP\n");
-        // flip something that says all the threads need to die now :)
         for (int i = 0; i < num_threads; i++){
             if (threads_res[i] == 0){
                 pthread_join(threads[i], NULL);
                 printf("SUCCESSFUL JOIN\n");
             }
         }
-        // }
     }
     else{
         return -1;
@@ -521,10 +520,10 @@ int main(int argc, char * argv[]){
     // write_results(logfile_name);
 
     xmlCleanupParser();
-
     free(urls_frontier->stack);
     free(urls_frontier);
     free(buf.buf);
+
     free(unique_pngs);
     free(visited_urls);
 
@@ -532,7 +531,7 @@ int main(int argc, char * argv[]){
     hdestroy();
     pthread_mutex_unlock(&ht_lock);
 
-    printf("here\n");
+    // printf("here\n");
 
     pthread_mutex_destroy(&ht_lock);
     pthread_mutex_destroy(&frontier_lock);
