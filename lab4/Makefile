@@ -9,7 +9,7 @@ LDLIBS = $(LDLIBS_XML2) $(LDLIBS_CURL)
 
 SRC_DIR = png_fun
 
-FINDPNG2_OBJS = $(SRC_DIR)/findpng2.o $(SRC_DIR)/frontier_stack.o $(SRC_DIR)/hashtable.o
+FINDPNG2_OBJS = $(SRC_DIR)/findpng2.o $(SRC_DIR)/frontier_stack.o $(SRC_DIR)/hashtable.o $(SRC_DIR)/ispng.o
 
 all: findpng2
 

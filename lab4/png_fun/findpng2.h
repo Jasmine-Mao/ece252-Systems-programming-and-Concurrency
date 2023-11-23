@@ -77,7 +77,7 @@ typedef struct simple_PNG {
  *  @param fpath The string of relative or absolute file path.
  *  @return 0 if the file is a png, -1 otherwise
  */
-int is_png(const char *fpath);
+int is_png(char* buf);
 
 /* Getters and setters for PNG dimensions*/
 int get_png_height(struct data_IHDR *buf);
