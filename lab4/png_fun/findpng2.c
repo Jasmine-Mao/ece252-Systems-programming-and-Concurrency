@@ -333,7 +333,8 @@ void *visit_url(void * arg){
     }
 
     pthread_mutex_lock(&frontier_lock);
-    char* temp = frontier_pop(urls_frontier);
+    char temp[256];
+    frontier_pop(urls_frontier, temp);
     pthread_mutex_unlock(&frontier_lock);
 
     if(temp != NULL){

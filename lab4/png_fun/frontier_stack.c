@@ -6,7 +6,7 @@
 
 int frontier_init(FRONTIER * frontier){
     frontier->top = -1;
-    frontier->stack = malloc(FRONTIER_MAX_SIZE* sizeof(char*));
+    frontier->stack = malloc(FRONTIER_MAX_SIZE * sizeof(char*));
     return 0;
 }
 
@@ -23,17 +23,16 @@ int frontier_push(FRONTIER * frontier, char * incoming_url){
     return 0;
 }
 
-char* frontier_pop(FRONTIER * frontier){
-    char * outgoing_url = NULL;
+int frontier_pop(FRONTIER * frontier, char * outgoing_url){
     if (frontier_is_empty(frontier)){
         printf("Tried to pop while frontiers is empty! Something has gone wrong!\n");
-        return NULL;
+        return -1;
     }
-    outgoing_url = strdup(frontier->stack[frontier->top]);
-    // printf("pop %s\n", frontier->stack[frontier->top]);
-    // printf("pop1 %s\n", outgoing_url);
+    strcpy(outgoing_url, frontier->stack[frontier->top]);
+    free(frontier->stack[frontier->top]);
     frontier->top--;
-    return outgoing_url;
+
+    return 0;
 }
 
 int frontier_is_empty(FRONTIER * frontier){
