@@ -307,6 +307,7 @@ void *visit_url(void * arg){
             pthread_cond_signal(&kill_threads_cond);
             pthread_cond_broadcast(&frontier_cond);
             // here if everything else is stuck waiting for the frontier cond to be satisfied
+            free(buf.buf);
             return 0;
         }
 
@@ -317,12 +318,14 @@ void *visit_url(void * arg){
         if(num_threads_waiting == num_threads){
             printf("time to die :D\n");
             pthread_mutex_unlock(&frontier_lock);
+            free(buf.buf);
             return 0;
         }
         pthread_mutex_unlock(&frontier_lock);
 
         num_threads_waiting--;
         visit_url(NULL);
+        return 0;
     }
 
     if(num_threads_waiting == num_threads || THREADS_STOP == 1){
@@ -347,6 +350,7 @@ void *visit_url(void * arg){
                 pthread_mutex_unlock(&frontier_lock);
 
                 visit_url(NULL);
+                free(buf.buf);
                 return 0;
             }
 
@@ -361,14 +365,20 @@ void *visit_url(void * arg){
                 pthread_mutex_unlock(&add_url_lock);
             }
             curl_easy_cleanup(curl_handle);
-            free(buf.buf);
 
             // if(THREADS_STOP == 1){
             //     return 0;
             // }
             // visit_url(NULL);
     }
+    if(THREADS_STOP == 1){
+        free(buf.buf);
+        return 0;
+    }
+
     visit_url(NULL);
+    free(buf.buf);
+
     return 0;
 }
 
