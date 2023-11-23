@@ -298,27 +298,33 @@ void *visit_url(void * arg){
         if(num_threads_waiting == num_threads){
             printf("KILL\n");
             pthread_cond_signal(&kill_threads_cond);
-
-            pthread_mutex_lock(&frontier_lock);
             pthread_cond_broadcast(&frontier_cond);
-            pthread_mutex_unlock(&frontier_lock);
             // here if everything else is stuck waiting for the frontier cond to be satisfied
             return 0;
         }
 
         pthread_mutex_lock(&frontier_lock);
-        printf("WAITING FOR STUFF TO BE IN THE FRONTIER...\n");
         pthread_cond_wait(&frontier_cond, &frontier_lock);
-        pthread_mutex_unlock(&frontier_lock);
-
-        printf("STUFF IN THE FRONTIER AGAIN!");
+        
+        printf("STUFF IN THE FRONTIER AGAIN!\n");
         if(num_threads_waiting == num_threads){
+            printf("time to die :D\n");
+            pthread_mutex_unlock(&frontier_lock);
             return 0;
         }
+
+        printf("got here\n");
+        pthread_mutex_unlock(&frontier_lock);
 
         num_threads_waiting--;
         free(buf.buf);
         visit_url(NULL);
+    }
+    
+    if(num_threads_waiting == num_threads){
+        printf("time to die :D\n");
+        pthread_mutex_unlock(&frontier_lock);
+        return 0;
     }
 
     pthread_mutex_lock(&frontier_lock);
