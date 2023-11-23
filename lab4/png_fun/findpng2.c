@@ -246,7 +246,7 @@ int process_png(CURL *curl_handle, DATA_BUF *recv_buf) {
         pthread_mutex_unlock(&ht_lock);
 
         pthread_mutex_lock(&add_png_lock);
-        unique_pngs[num_png_obtained] = eurl;
+        unique_pngs[num_png_obtained] = strdup(eurl);
         printf("UNIQUE PNG FOUND! %s\n", unique_pngs[num_png_obtained]);
         num_png_obtained++;
         pthread_mutex_unlock(&add_png_lock);
@@ -355,43 +355,50 @@ void *visit_url(void * arg){
                 process_data(curl_handle, &buf);
                 
                 pthread_mutex_lock(&add_url_lock);
-                visited_urls[num_urls_visited] = seed_url;
+                visited_urls[num_urls_visited] = temp;
                 num_urls_visited++;
                 pthread_mutex_unlock(&add_url_lock);
             }
             curl_easy_cleanup(curl_handle);
             free(buf.buf);
 
-            if(THREADS_STOP == 1){
-                return 0;
-            }
-            visit_url(NULL);
+            // if(THREADS_STOP == 1){
+            //     return 0;
+            // }
+            // visit_url(NULL);
     }
-    
+    visit_url(NULL);
     return 0;
 }
 
 int write_results(char * logfile_name){ //rewrite to append instead of write
-    FILE *png_urls = fopen("png_urls.txt", "w");
+    FILE *png_urls = fopen("png_urls.txt", "w+");
     if (!png_urls) {
         perror("fopen");
         fclose(png_urls);
         return -1;
     }
-    
-    if (num_png_obtained == 0){
+    int min_pngs = 0;
+    if (num_png_obtained < max_png){
+        min_pngs = num_png_obtained;
+    } else {
+        min_pngs = max_png;
+    }
+
+    if (min_pngs == 0){
         fclose(png_urls);
     }
     else {
-        for (int i = 0; i < num_png_obtained; i++){
+        for (int i = 0; i < min_pngs; i++){
+            printf("%s\n", unique_pngs[i]);
             fprintf(png_urls, "%s\n", unique_pngs[i]);    // small but maybe wanna confirm if we can have a new line at the end of this file lol
         }
         fclose(png_urls);
     }
 
     if (logfile_name != NULL){
-        FILE *logfile = fopen(logfile_name, "w");
-        for (int i = 0; i < MAX_URLS; i++){
+        FILE *logfile = fopen(logfile_name, "w+");
+        for (int i = 0; i < num_urls_visited; i++){
             if (visited_urls[i] != NULL){        // this inefficient, easy workaround is just to create a seperate container (array) w/ an end index
                 fprintf(logfile, "%s\n", visited_urls[i]);  // variable, and add to it everytime we find a unique url. if this causes time influence @ the end we can do the workaround
             }
@@ -498,6 +505,7 @@ int main(int argc, char * argv[]){
         int threads_res[num_threads];
         for (int i = 0; i < num_threads; i++){
             threads_res[i] = pthread_create(threads + i, NULL, visit_url, NULL);
+            printf("here4\n");
         }
         // C O N D I T I O N A L  F O R  K I L L I N G  T H R E A D S
         pthread_mutex_lock(&threads_lock);
@@ -517,7 +525,7 @@ int main(int argc, char * argv[]){
     else{
         return -1;
     }
-    // write_results(logfile_name);
+    write_results(logfile_name);
 
     xmlCleanupParser();
     free(urls_frontier->stack);
