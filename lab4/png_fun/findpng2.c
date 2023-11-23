@@ -141,7 +141,7 @@ htmlDocPtr mem_getdoc(char *buf, int size, const char *url)
     htmlDocPtr doc = htmlReadMemory(buf, size, url, NULL, opts);
     
     if ( doc == NULL ) {
-        fprintf(stderr, "Document not parsed successfully.\n");
+        // fprintf(stderr, "Document not parsed successfully.\n");
         return NULL;
     }
     return doc;
@@ -165,7 +165,7 @@ xmlXPathObjectPtr getnodeset (xmlDocPtr doc, xmlChar *xpath)
     }
     if(xmlXPathNodeSetIsEmpty(result->nodesetval)){
         xmlXPathFreeObject(result);
-        printf("No result\n");
+        // printf("No result\n");
         return NULL;
     }
     return result;
@@ -212,7 +212,7 @@ int find_http(char *buf, int size, int follow_relative_links, const char *base_u
                     // broadcast to all threads waiting that there is stuff in the frontier now
                 }
                 else{
-                    printf("ALREADY IN THE HT: %s \n", href);
+                    // printf("ALREADY IN THE HT: %s \n", href);
                 }
             }
             xmlFree(href);
@@ -236,7 +236,7 @@ int process_png(CURL *curl_handle, DATA_BUF *recv_buf) {
     char *eurl = NULL;
     curl_easy_getinfo(curl_handle, CURLINFO_EFFECTIVE_URL, &eurl);
     
-    if ((eurl != NULL) && (ht_search_url(eurl) == 0) && is_png(recv_buf->buf)) {
+    if ((eurl != NULL) && is_png(recv_buf->buf) == 0) {
         pthread_mutex_lock(&ht_lock);
         // lock the ht when adding a new url
         ht_add_url(eurl);
@@ -261,7 +261,7 @@ int process_data(CURL *curl_handle, DATA_BUF *recv_buf) {
 
     res = curl_easy_getinfo(curl_handle, CURLINFO_RESPONSE_CODE, &response_code);
     if ( res == CURLE_OK ) {
-	    printf("Response code: %ld\n", response_code);
+	    // printf("Response code: %ld\n", response_code);
     }
 
     if ( response_code >= 400 ) {
@@ -272,17 +272,17 @@ int process_data(CURL *curl_handle, DATA_BUF *recv_buf) {
     char *ct = NULL;
     res = curl_easy_getinfo(curl_handle, CURLINFO_CONTENT_TYPE, &ct);
     if ( res == CURLE_OK && ct != NULL ) {
-    	printf("Content-Type: %s, len=%ld\n", ct, strlen(ct));
+    	// printf("Content-Type: %s, len=%ld\n", ct, strlen(ct));
     } else {
         fprintf(stderr, "Failed obtain Content-Type\n");
         return 2;
     }
 
     if ( strstr(ct, CT_HTML) ) { 
-        printf("FOUND AN HTML PAGE!!\n");
+        // printf("FOUND AN HTML PAGE!!\n");
         return process_html(curl_handle, recv_buf);
     } else if ( strstr(ct, CT_PNG) ) {
-        printf("FOUND A PNG!!\n");
+        // printf("FOUND A PNG!!\n");
         return process_png(curl_handle, recv_buf);
     }
     return 0;
@@ -296,7 +296,7 @@ void *visit_url(void * arg){
     buf.size = 0;
     buf.seq = -1;
     
-    printf("***********************************\n");
+    // printf("***********************************\n");
 
     if(frontier_is_empty(urls_frontier)){ 
         printf("FRONTIER EMPTY!!\n");
@@ -317,7 +317,7 @@ void *visit_url(void * arg){
     pthread_mutex_lock(&frontier_lock);
     char* temp = frontier_pop(urls_frontier);
     pthread_mutex_unlock(&frontier_lock);
-    printf("NOW ON URL %s\n", temp);
+    // printf("NOW ON URL %s\n", temp);
 
     CURL* curl_handle = easy_handle_init(&buf, temp);
 
@@ -335,6 +335,8 @@ void *visit_url(void * arg){
         process_data(curl_handle, &buf);
         // ADD URL TO VISITED
     }
+    curl_easy_cleanup(curl_handle);
+    free(buf.buf);
 
     // curl has finished, time to wrap things up
     if(THREADS_STOP == 1){
@@ -489,15 +491,19 @@ int main(int argc, char * argv[]){
         return -1;
     }
 
+    curl_easy_cleanup(curl_handle);
+
+    xmlCleanupParser();
     printf("CLEANING UP\n");
 
-    curl_easy_cleanup(curl_handle);
-    xmlCleanupParser();
     free(urls_frontier->stack);
     free(urls_frontier);
     free(buf.buf);
     
+    pthread_mutex_lock(&ht_lock);
     hdestroy();
+    pthread_mutex_unlock(&ht_lock);
+
     write_results(logfile_name);
     free(unique_pngs);
 
