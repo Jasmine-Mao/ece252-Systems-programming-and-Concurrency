@@ -295,11 +295,11 @@ int process_data(CURL *curl_handle, DATA_BUF *recv_buf) {
 void *visit_url(void * arg){
     DATA_BUF buf;
     buf.max_size = 1048576; // WHAT SHOULD THE MAX SIZE BE?
-    buf.buf = malloc(1048576);
+    buf.buf = malloc(buf.max_size);
     buf.size = 0;
     buf.seq = -1;
 
-    if(!frontier_is_empty(urls_frontier)){ 
+    if(frontier_is_empty(urls_frontier)){ 
         printf("FRONTIER EMPTY!!\n");
         num_threads_waiting++;
         if(num_threads_waiting == num_threads){
@@ -322,13 +322,13 @@ void *visit_url(void * arg){
         pthread_mutex_unlock(&frontier_lock);
 
         num_threads_waiting--;
-        free(buf.buf);
         visit_url(NULL);
     }
 
     if(num_threads_waiting == num_threads || THREADS_STOP == 1){
-        printf("time to die :D\n");
-        pthread_mutex_unlock(&frontier_lock);
+        printf("STOP OUTSIDE OF FRONTIER\n");
+        free(buf.buf);
+        printf("FREED BUFFER\n");
         return 0;
     }
 
@@ -336,32 +336,38 @@ void *visit_url(void * arg){
     char* temp = frontier_pop(urls_frontier);
     pthread_mutex_unlock(&frontier_lock);
 
-    CURL* curl_handle = easy_handle_init(&buf, temp);
+    if(temp != NULL){
+        CURL* curl_handle = easy_handle_init(&buf, temp);
 
-    if(curl_handle == NULL){
-        printf("CURL FAILED\n");
-        curl_easy_cleanup(curl_handle);
-        frontier_push(urls_frontier, temp);
-        free(buf.buf);
-        visit_url(NULL);
+            if(curl_handle == NULL){
+                printf("CURL FAILED\n");
+                pthread_mutex_lock(&frontier_lock);
+                frontier_push(urls_frontier, temp);
+                pthread_mutex_unlock(&frontier_lock);
+
+                visit_url(NULL);
+                return 0;
+            }
+
+            CURLcode res = curl_easy_perform(curl_handle);
+
+            if(res == CURLE_OK){
+                process_data(curl_handle, &buf);
+                
+                pthread_mutex_lock(&add_url_lock);
+                visited_urls[num_urls_visited] = seed_url;
+                num_urls_visited++;
+                pthread_mutex_unlock(&add_url_lock);
+            }
+            curl_easy_cleanup(curl_handle);
+            free(buf.buf);
+
+            if(THREADS_STOP == 1){
+                return 0;
+            }
+            visit_url(NULL);
     }
-
-    CURLcode res = curl_easy_perform(curl_handle);
-
-    if(res == CURLE_OK){
-        process_data(curl_handle, &buf);
-        pthread_mutex_lock(&add_url_lock);
-        visited_urls[num_urls_visited] = seed_url;
-        num_urls_visited++;
-        pthread_mutex_unlock(&add_url_lock);
-    }
-    curl_easy_cleanup(curl_handle);
-    free(buf.buf);
-
-    if(THREADS_STOP == 1){
-        return 0;
-    }
-    visit_url(NULL);
+    
     return 0;
 }
 
@@ -481,10 +487,11 @@ int main(int argc, char * argv[]){
     if(res == CURLE_OK){
         printf("successfully curled. starting threads...\n");
         process_data(curl_handle, &buf);
+        curl_easy_cleanup(curl_handle);
+
         visited_urls[num_urls_visited] = seed_url;
         // printf("%s\n", visited_urls[num_urls_visited]);
         num_urls_visited++;
-
 
         // THREADS STUFF STARTS HERE
         pthread_t threads[num_threads];
@@ -503,6 +510,7 @@ int main(int argc, char * argv[]){
         for (int i = 0; i < num_threads; i++){
             if (threads_res[i] == 0){
                 pthread_join(threads[i], NULL);
+                printf("SUCCESSFUL JOIN\n");
             }
         }
         // }
@@ -512,26 +520,25 @@ int main(int argc, char * argv[]){
     }
     // write_results(logfile_name);
 
-
-    curl_easy_cleanup(curl_handle);
-
     xmlCleanupParser();
 
     free(urls_frontier->stack);
     free(urls_frontier);
     free(buf.buf);
+    free(unique_pngs);
+    free(visited_urls);
 
     pthread_mutex_lock(&ht_lock);
     hdestroy();
     pthread_mutex_unlock(&ht_lock);
 
-    free(unique_pngs);
-
-    free(visited_urls);
+    printf("here\n");
 
     pthread_mutex_destroy(&ht_lock);
     pthread_mutex_destroy(&frontier_lock);
     pthread_mutex_destroy(&threads_lock);
+    pthread_mutex_destroy(&add_png_lock);
+    pthread_mutex_destroy(&add_url_lock);
 
     pthread_cond_destroy(&frontier_cond);
     pthread_cond_destroy(&kill_threads_cond);

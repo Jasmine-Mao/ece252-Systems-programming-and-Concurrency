@@ -27,6 +27,7 @@ char* frontier_pop(FRONTIER * frontier){
     char * outgoing_url = NULL;
     if (frontier_is_empty(frontier)){
         printf("Tried to pop while frontiers is empty! Something has gone wrong!\n");
+        return NULL;
     }
     outgoing_url = strdup(frontier->stack[frontier->top]);
     // printf("pop %s\n", frontier->stack[frontier->top]);
