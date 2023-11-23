@@ -33,6 +33,7 @@
 FRONTIER * urls_frontier;
 char ** unique_pngs;    // this is a pointer to an array of pointers (where each item is a pointer to a char array (string)
 char** visited_urls; //for writing purposes
+
 char seed_url[256];
 int max_png = 50;
 int num_threads = 1;
@@ -211,9 +212,6 @@ int find_http(char *buf, int size, int follow_relative_links, const char *base_u
                     pthread_cond_broadcast(&frontier_cond);
                     // broadcast to all threads waiting that there is stuff in the frontier now
                 }
-                else{
-                    // printf("ALREADY IN THE HT: %s \n", href);
-                }
             }
             xmlFree(href);
         }
@@ -242,15 +240,13 @@ int process_png(CURL *curl_handle, DATA_BUF *recv_buf) {
         ht_add_url(eurl);
         pthread_mutex_unlock(&ht_lock);
 
-        printf("The PNG url is: %s\n", eurl);
-        // add to the list of visited urls
-        // add tp the png list
+        unique_pngs[num_png_obtained] = eurl;
+        printf("UNIQUE PNG FOUND! %s\n", unique_pngs[num_png_obtained]);
         num_png_obtained++;
+
         if(num_png_obtained == max_png){
-            // grabbed all the png's we need
             pthread_cond_signal(&kill_threads_cond);
         }
-
     }
     return 0;
 }
@@ -295,29 +291,39 @@ void *visit_url(void * arg){
     buf.buf = malloc(1048576);
     buf.size = 0;
     buf.seq = -1;
-    
-    // printf("***********************************\n");
 
     if(frontier_is_empty(urls_frontier)){ 
         printf("FRONTIER EMPTY!!\n");
         num_threads_waiting++;
         if(num_threads_waiting == num_threads){
             printf("KILL\n");
-            if(num_threads == 1){
-                return 0;
-            }
             pthread_cond_signal(&kill_threads_cond);
+
+            pthread_mutex_lock(&frontier_lock);
+            pthread_cond_broadcast(&frontier_cond);
+            pthread_mutex_unlock(&frontier_lock);
+            // here if everything else is stuck waiting for the frontier cond to be satisfied
+            return 0;
         }
+
+        pthread_mutex_lock(&frontier_lock);
+        printf("WAITING FOR STUFF TO BE IN THE FRONTIER...\n");
         pthread_cond_wait(&frontier_cond, &frontier_lock);
         pthread_mutex_unlock(&frontier_lock);
+
+        printf("STUFF IN THE FRONTIER AGAIN!");
+        if(num_threads_waiting == num_threads){
+            return 0;
+        }
+
         num_threads_waiting--;
         free(buf.buf);
         visit_url(NULL);
     }
+
     pthread_mutex_lock(&frontier_lock);
     char* temp = frontier_pop(urls_frontier);
     pthread_mutex_unlock(&frontier_lock);
-    // printf("NOW ON URL %s\n", temp);
 
     CURL* curl_handle = easy_handle_init(&buf, temp);
 
@@ -333,14 +339,13 @@ void *visit_url(void * arg){
 
     if(res == CURLE_OK){
         process_data(curl_handle, &buf);
-        // ADD URL TO VISITED
+        visited_urls[num_urls_visited] = seed_url;
+        num_urls_visited++;
     }
     curl_easy_cleanup(curl_handle);
     free(buf.buf);
 
-    // curl has finished, time to wrap things up
     if(THREADS_STOP == 1){
-        // main has signalled that the threads need to stop
         return 0;
     }
     visit_url(NULL);
@@ -383,7 +388,6 @@ int main(int argc, char * argv[]){
     curl_global_init(CURL_GLOBAL_DEFAULT);
     int c;
     char* logfile_name = NULL;
-    // default to 1 thread looking for 50 pngs; no logging
 
     if(argc < 2){
         fprintf(stderr, "Incorrect arguments!\n");
@@ -394,7 +398,7 @@ int main(int argc, char * argv[]){
         return errno;
     }
 
-    visited_urls = malloc(sizeof(char*)*500);
+    visited_urls = malloc(sizeof(char*)*500);   // visited urls array
     xmlInitParser();
 
     while((c = getopt(argc, argv, "t:m:v:")) != -1){
@@ -440,7 +444,6 @@ int main(int argc, char * argv[]){
     pthread_cond_init(&kill_threads_cond, NULL);
     pthread_cond_init(&frontier_cond, NULL);
 
-
     // TODO: @EVELYN thread creation, joining and cleanup
     // if t == 1, just jump to visit_url [seed]
     // else, create threads, visit_url will be our thread routine
@@ -463,48 +466,53 @@ int main(int argc, char * argv[]){
     if(res == CURLE_OK){
         printf("successfully curled. starting threads...\n");
         process_data(curl_handle, &buf);
+        visited_urls[num_urls_visited] = seed_url;
+        // printf("%s\n", visited_urls[num_urls_visited]);
+        num_urls_visited++;
 
-        if (num_threads == 1){
-            visit_url(NULL);
-            //pthread_cond_wait(&kill_threads_cond, &threads_lock);
-            printf("HERE");
-            // in vist_url return if frontier is empty
+        // if (num_threads == 1){
+        //     visit_url(NULL);
+        //     //pthread_cond_wait(&kill_threads_cond, &threads_lock);
+        //     printf("HERE");
+        //     // in vist_url return if frontier is empty
+        // }
+        // else{
+        pthread_t threads[num_threads];
+        int threads_res[num_threads];
+        for (int i = 0; i < num_threads; i++){
+            threads_res[i] = pthread_create(threads + i, NULL, visit_url, NULL);
         }
-        else{
-            pthread_t threads[num_threads];
-            int threads_res[num_threads];
-            for (int i = 0; i < num_threads; i++){
-                threads_res[i] = pthread_create(threads + i, NULL, visit_url, NULL);
-            }
-            // C O N D I T I O N A L  F O R  K I L L I N G  T H R E A D S
-            pthread_cond_wait(&kill_threads_cond, &ht_lock);
-            printf("CLEANING EVERYTHING UP\n");
-            // flip something that says all the threads need to die now :)
-            for (int i = 0; i < num_threads; i++){
-                if (threads_res[i] == 0){
-                    pthread_join(threads[i], NULL);
-                }
+        // C O N D I T I O N A L  F O R  K I L L I N G  T H R E A D S
+        pthread_mutex_lock(&threads_lock);
+        pthread_cond_wait(&kill_threads_cond, &threads_lock);
+        printf("CLEANING EVERYTHING UP\n");
+        // flip something that says all the threads need to die now :)
+        for (int i = 0; i < num_threads; i++){
+            if (threads_res[i] == 0){
+                pthread_join(threads[i], NULL);
             }
         }
+        // }
     }
     else{
         return -1;
     }
+    // write_results(logfile_name);
+
 
     curl_easy_cleanup(curl_handle);
 
     xmlCleanupParser();
-    printf("CLEANING UP\n");
 
     free(urls_frontier->stack);
     free(urls_frontier);
     free(buf.buf);
-    
+
     pthread_mutex_lock(&ht_lock);
     hdestroy();
     pthread_mutex_unlock(&ht_lock);
+    printf("CLEANING UP\n");
 
-    write_results(logfile_name);
     free(unique_pngs);
 
     free(visited_urls);
