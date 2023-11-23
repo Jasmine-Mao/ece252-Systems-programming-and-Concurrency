@@ -47,6 +47,8 @@ atomic_int num_png_obtained = 0;
 pthread_mutex_t ht_lock;
 pthread_mutex_t frontier_lock;
 pthread_mutex_t threads_lock;
+pthread_mutex_t add_png_lock;
+pthread_mutex_t add_url_lock;
 
 pthread_cond_t kill_threads_cond;
 pthread_cond_t frontier_cond;
@@ -243,9 +245,11 @@ int process_png(CURL *curl_handle, DATA_BUF *recv_buf) {
         ht_add_url(eurl);
         pthread_mutex_unlock(&ht_lock);
 
+        pthread_mutex_lock(&add_png_lock);
         unique_pngs[num_png_obtained] = eurl;
         printf("UNIQUE PNG FOUND! %s\n", unique_pngs[num_png_obtained]);
         num_png_obtained++;
+        pthread_mutex_unlock(&add_png_lock);
 
         if(num_png_obtained == max_png){
             pthread_cond_signal(&kill_threads_cond);
@@ -295,7 +299,7 @@ void *visit_url(void * arg){
     buf.size = 0;
     buf.seq = -1;
 
-    if(frontier_is_empty(urls_frontier)){ 
+    if(!frontier_is_empty(urls_frontier)){ 
         printf("FRONTIER EMPTY!!\n");
         num_threads_waiting++;
         if(num_threads_waiting == num_threads){
@@ -315,8 +319,6 @@ void *visit_url(void * arg){
             pthread_mutex_unlock(&frontier_lock);
             return 0;
         }
-
-        printf("got here\n");
         pthread_mutex_unlock(&frontier_lock);
 
         num_threads_waiting--;
@@ -324,7 +326,7 @@ void *visit_url(void * arg){
         visit_url(NULL);
     }
 
-    if(num_threads_waiting == num_threads){
+    if(num_threads_waiting == num_threads || THREADS_STOP == 1){
         printf("time to die :D\n");
         pthread_mutex_unlock(&frontier_lock);
         return 0;
@@ -348,8 +350,10 @@ void *visit_url(void * arg){
 
     if(res == CURLE_OK){
         process_data(curl_handle, &buf);
+        pthread_mutex_lock(&add_url_lock);
         visited_urls[num_urls_visited] = seed_url;
         num_urls_visited++;
+        pthread_mutex_unlock(&add_url_lock);
     }
     curl_easy_cleanup(curl_handle);
     free(buf.buf);
@@ -449,6 +453,8 @@ int main(int argc, char * argv[]){
     pthread_mutex_init(&ht_lock, NULL);
     pthread_mutex_init(&frontier_lock, NULL);
     pthread_mutex_init(&threads_lock, NULL);
+    pthread_mutex_init(&add_png_lock, NULL);
+    pthread_mutex_init(&add_url_lock, NULL);
 
     pthread_cond_init(&kill_threads_cond, NULL);
     pthread_cond_init(&frontier_cond, NULL);
