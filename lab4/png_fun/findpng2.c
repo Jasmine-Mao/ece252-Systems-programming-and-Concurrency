@@ -440,7 +440,7 @@ int main(int argc, char * argv[]){
             break;
         
         case 'm':
-            max_png = strtoul(optarg, NULL, 10);
+            max_png = (int)strtoul(optarg, NULL, 10);
             if(max_png <= 0){
                 printf("please enter valid number of max images\n");
                 return -1;
@@ -462,7 +462,7 @@ int main(int argc, char * argv[]){
     frontier_init(urls_frontier);
 
     // printf("%ld", sizeof(char*) * max_png);
-    unique_pngs = malloc(sizeof(char*) * 50);
+    unique_pngs = malloc(sizeof(char*) * max_png);
 
     pthread_mutex_init(&ht_lock, NULL);
     pthread_mutex_init(&frontier_lock, NULL);
