@@ -338,35 +338,20 @@ void *visit_url(void * arg){
 
     if(temp != NULL){
         CURL* curl_handle = easy_handle_init(&buf, temp);
+        CURLcode res = curl_easy_perform(curl_handle);
 
-            if(curl_handle == NULL){
-                printf("CURL FAILED\n");
-                pthread_mutex_lock(&frontier_lock);
-                frontier_push(urls_frontier, temp);
-                pthread_mutex_unlock(&frontier_lock);
-
-                visit_url(NULL);
-                return 0;
-            }
-
-            CURLcode res = curl_easy_perform(curl_handle);
-
-            if(res == CURLE_OK){
-                process_data(curl_handle, &buf);
-                
-                pthread_mutex_lock(&add_url_lock);
-                visited_urls[num_urls_visited] = seed_url;
-                num_urls_visited++;
-                pthread_mutex_unlock(&add_url_lock);
-            }
-            curl_easy_cleanup(curl_handle);
-            free(buf.buf);
-
-            if(THREADS_STOP == 1){
-                return 0;
-            }
-            visit_url(NULL);
+        if(res == CURLE_OK){
+            process_data(curl_handle, &buf);
+            
+            pthread_mutex_lock(&add_url_lock);
+            visited_urls[num_urls_visited] = seed_url;
+            num_urls_visited++;
+            pthread_mutex_unlock(&add_url_lock);
+        }
+        curl_easy_cleanup(curl_handle);
+        free(buf.buf);
     }
+    visit_url(NULL);
     
     return 0;
 }
