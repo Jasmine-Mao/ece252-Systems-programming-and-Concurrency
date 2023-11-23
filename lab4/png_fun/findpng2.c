@@ -189,6 +189,9 @@ int find_http(char *buf, int size, int follow_relative_links, const char *base_u
     if (result) {
         nodeset = result->nodesetval;
         for (i=0; i < nodeset->nodeNr; i++) {
+            if(THREADS_STOP == 1){
+                return 0;
+            }
             href = xmlNodeListGetString(doc, nodeset->nodeTab[i]->xmlChildrenNode, 1);
             if ( follow_relative_links ) {
                 xmlChar *old = href;
@@ -261,7 +264,7 @@ int process_data(CURL *curl_handle, DATA_BUF *recv_buf) {
     }
 
     if ( response_code >= 400 ) {
-    	fprintf(stderr, "Error.\n");
+    	// fprintf(stderr, "Error.\n");
         return 1;
     }
 
@@ -320,7 +323,7 @@ void *visit_url(void * arg){
         free(buf.buf);
         visit_url(NULL);
     }
-    
+
     if(num_threads_waiting == num_threads){
         printf("time to die :D\n");
         pthread_mutex_unlock(&frontier_lock);
@@ -476,13 +479,8 @@ int main(int argc, char * argv[]){
         // printf("%s\n", visited_urls[num_urls_visited]);
         num_urls_visited++;
 
-        // if (num_threads == 1){
-        //     visit_url(NULL);
-        //     //pthread_cond_wait(&kill_threads_cond, &threads_lock);
-        //     printf("HERE");
-        //     // in vist_url return if frontier is empty
-        // }
-        // else{
+
+        // THREADS STUFF STARTS HERE
         pthread_t threads[num_threads];
         int threads_res[num_threads];
         for (int i = 0; i < num_threads; i++){
@@ -491,6 +489,9 @@ int main(int argc, char * argv[]){
         // C O N D I T I O N A L  F O R  K I L L I N G  T H R E A D S
         pthread_mutex_lock(&threads_lock);
         pthread_cond_wait(&kill_threads_cond, &threads_lock);
+        THREADS_STOP = 1;
+        pthread_mutex_unlock(&threads_lock);
+
         printf("CLEANING EVERYTHING UP\n");
         // flip something that says all the threads need to die now :)
         for (int i = 0; i < num_threads; i++){
@@ -517,7 +518,6 @@ int main(int argc, char * argv[]){
     pthread_mutex_lock(&ht_lock);
     hdestroy();
     pthread_mutex_unlock(&ht_lock);
-    printf("CLEANING UP\n");
 
     free(unique_pngs);
 
