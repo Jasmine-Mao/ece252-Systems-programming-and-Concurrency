@@ -49,6 +49,7 @@ pthread_mutex_t frontier_lock;
 pthread_mutex_t threads_lock;
 pthread_mutex_t add_png_lock;
 pthread_mutex_t add_url_lock;
+pthread_mutex_t frontier_empty_lock;
 
 pthread_cond_t kill_threads_cond;
 pthread_cond_t frontier_cond;
@@ -252,7 +253,10 @@ int process_png(CURL *curl_handle, DATA_BUF *recv_buf) {
         pthread_mutex_unlock(&add_png_lock);
 
         if(num_png_obtained == max_png){
-            pthread_cond_signal(&kill_threads_cond);
+            printf("MAX PNGS FOUND\n");
+            pthread_cond_broadcast(&kill_threads_cond);
+            pthread_cond_broadcast(&frontier_cond);
+            return 0;
         }
     }
     return 0;
@@ -292,93 +296,77 @@ int process_data(CURL *curl_handle, DATA_BUF *recv_buf) {
 }
 
 // TODO: @<JASMINE> thread routine
-void *visit_url(void * arg){
-    DATA_BUF buf;
-    buf.max_size = 1048576; // WHAT SHOULD THE MAX SIZE BE?
-    buf.buf = malloc(buf.max_size);
-    buf.size = 0;
-    buf.seq = -1;
+void *visit_url(void * arg){    
+    while(THREADS_STOP == 0){
+        DATA_BUF buf;
+        buf.max_size = 1048576; // WHAT SHOULD THE MAX SIZE BE?
+        buf.buf = malloc(buf.max_size);
+        buf.size = 0;
+        buf.seq = -1;
 
-    if(frontier_is_empty(urls_frontier)){ 
-        printf("FRONTIER EMPTY!!\n");
-        num_threads_waiting++;
-        if(num_threads_waiting == num_threads){
-            printf("KILL\n");
-            pthread_cond_signal(&kill_threads_cond);
-            pthread_cond_broadcast(&frontier_cond);
-            // here if everything else is stuck waiting for the frontier cond to be satisfied
-            free(buf.buf);
-            return 0;
-        }
-
-        pthread_mutex_lock(&frontier_lock);
-        pthread_cond_wait(&frontier_cond, &frontier_lock);
-        
-        printf("STUFF IN THE FRONTIER AGAIN!\n");
-        if(num_threads_waiting == num_threads){
-            printf("time to die :D\n");
-            pthread_mutex_unlock(&frontier_lock);
-            free(buf.buf);
-            return 0;
-        }
-        pthread_mutex_unlock(&frontier_lock);
-
-        num_threads_waiting--;
-        visit_url(NULL);
-        return 0;
-    }
-
-    if(num_threads_waiting == num_threads || THREADS_STOP == 1){
-        printf("STOP OUTSIDE OF FRONTIER\n");
-        free(buf.buf);
-        printf("FREED BUFFER\n");
-        return 0;
-    }
-
-    pthread_mutex_lock(&frontier_lock);
-    char temp[256];
-    frontier_pop(urls_frontier, temp);
-    pthread_mutex_unlock(&frontier_lock);
-
-    if(temp != NULL){
-        CURL* curl_handle = easy_handle_init(&buf, temp);
-
-            if(curl_handle == NULL){
-                printf("CURL FAILED\n");
-                pthread_mutex_lock(&frontier_lock);
-                frontier_push(urls_frontier, temp);
-                pthread_mutex_unlock(&frontier_lock);
-
-                visit_url(NULL);
+        if(frontier_is_empty(urls_frontier)){ 
+            printf("FRONTIER EMPTY!!\n");
+            num_threads_waiting++;
+            printf("NUM WAITING = %d\n", num_threads_waiting);
+            if(num_threads_waiting == num_threads){
+                printf("KILL\n");
+                pthread_cond_signal(&kill_threads_cond);
+                pthread_cond_broadcast(&frontier_cond);
+                // here if everything else is stuck waiting for the frontier cond to be satisfied
                 free(buf.buf);
                 return 0;
             }
 
-            CURLcode res = curl_easy_perform(curl_handle);
-
-            if(res == CURLE_OK){
-                process_data(curl_handle, &buf);
-                
-                pthread_mutex_lock(&add_url_lock);
-                visited_urls[num_urls_visited] = temp;
-                num_urls_visited++;
-                pthread_mutex_unlock(&add_url_lock);
+            pthread_mutex_lock(&frontier_empty_lock);
+            pthread_cond_wait(&frontier_cond, &frontier_empty_lock);
+            
+            printf("STUFF IN THE FRONTIER AGAIN!\n");
+            if(THREADS_STOP == 1){
+                printf("time to die :D\n");
+                pthread_mutex_unlock(&frontier_empty_lock);
+                free(buf.buf);
+                return 0;
             }
-            curl_easy_cleanup(curl_handle);
+            pthread_mutex_unlock(&frontier_empty_lock);
 
-            // if(THREADS_STOP == 1){
-            //     return 0;
-            // }
-            // visit_url(NULL);
-    }
-    if(THREADS_STOP == 1){
+            num_threads_waiting--;
+        }
+
+        if(THREADS_STOP != 1){
+            pthread_mutex_lock(&frontier_lock);
+            char temp[256];
+            frontier_pop(urls_frontier, temp);
+            pthread_mutex_unlock(&frontier_lock);
+
+            if(temp != NULL){
+                CURL* curl_handle = easy_handle_init(&buf, temp);
+
+                if(curl_handle == NULL){
+                    printf("CURL FAILED\n");
+                    pthread_mutex_lock(&frontier_lock);
+                    frontier_push(urls_frontier, temp);
+                    pthread_mutex_unlock(&frontier_lock);
+
+                    visit_url(NULL);
+                    free(buf.buf);
+                    return 0;
+                }
+
+                CURLcode res = curl_easy_perform(curl_handle);
+
+                if(res == CURLE_OK){
+                    process_data(curl_handle, &buf);
+                    
+                    pthread_mutex_lock(&add_url_lock);
+                    visited_urls[num_urls_visited] = temp;
+                    num_urls_visited++;
+                    pthread_mutex_unlock(&add_url_lock);
+                }
+                curl_easy_cleanup(curl_handle);
+            }
+        }
         free(buf.buf);
-        return 0;
     }
-
-    visit_url(NULL);
-    free(buf.buf);
-
     return 0;
 }
 
@@ -480,6 +468,7 @@ int main(int argc, char * argv[]){
     pthread_mutex_init(&threads_lock, NULL);
     pthread_mutex_init(&add_png_lock, NULL);
     pthread_mutex_init(&add_url_lock, NULL);
+    pthread_mutex_init(&frontier_empty_lock, NULL);
 
     pthread_cond_init(&kill_threads_cond, NULL);
     pthread_cond_init(&frontier_cond, NULL);
@@ -536,7 +525,7 @@ int main(int argc, char * argv[]){
     else{
         return -1;
     }
-    write_results(logfile_name);
+    // write_results(logfile_name);
 
     xmlCleanupParser();
     free(urls_frontier->stack);
