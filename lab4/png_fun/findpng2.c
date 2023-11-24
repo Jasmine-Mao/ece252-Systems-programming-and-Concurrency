@@ -51,6 +51,8 @@ pthread_mutex_t add_png_lock;
 pthread_mutex_t add_url_lock;
 pthread_mutex_t frontier_empty_lock;
 
+pthread_mutex_t thread_stop_lock;
+
 pthread_cond_t kill_threads_cond;
 pthread_cond_t frontier_cond;
 
@@ -193,6 +195,9 @@ int find_http(char *buf, int size, int follow_relative_links, const char *base_u
         nodeset = result->nodesetval;
         for (i=0; i < nodeset->nodeNr; i++) {
             if(THREADS_STOP == 1){
+                xmlXPathFreeObject (result);
+                xmlFreeDoc(doc);
+                xmlCleanupParser();
                 return 0;
             }
             href = xmlNodeListGetString(doc, nodeset->nodeTab[i]->xmlChildrenNode, 1);
@@ -201,23 +206,22 @@ int find_http(char *buf, int size, int follow_relative_links, const char *base_u
                 href = xmlBuildURI(href, (xmlChar *) base_url); 
                 xmlFree(old);
             }
-            if ( href != NULL && !strncmp((const char *)href, "http", 4) ) {
-                if(ht_search_url((char*)href) == 0){
-                    printf("this is a unique url: %s\n", (char*)href);
+            if ( href != NULL && !strncmp((const char *)href, "http", 4) && ht_search_url((char*)href) == 0) {
+                printf("this is a unique url: %s\n", (char*)href);
 
-                    pthread_mutex_lock(&ht_lock);
-                    // lock the ht to write to it
-                    ht_add_url((char*)href);
-                    pthread_mutex_unlock(&ht_lock);
+                pthread_mutex_lock(&ht_lock);
+                // lock the ht to write to it
+                ht_add_url((char*)href);
+                pthread_mutex_unlock(&ht_lock);
 
-                    pthread_mutex_lock(&frontier_lock);
-                    // lock the frontier when trying to write
-                    frontier_push(urls_frontier, (char*)href);
-                    pthread_mutex_unlock(&frontier_lock);
+                pthread_mutex_lock(&frontier_lock);
+                // lock the frontier when trying to write
+                frontier_push(urls_frontier, (char*)href);
+                pthread_mutex_unlock(&frontier_lock);
 
-                    pthread_cond_broadcast(&frontier_cond);
-                    // broadcast to all threads waiting that there is stuff in the frontier now
-                }
+                pthread_cond_broadcast(&frontier_cond);
+                // broadcast to all threads waiting that there is stuff in the frontier now
+                
             }
             xmlFree(href);
         }
@@ -324,6 +328,7 @@ void *visit_url(void * arg){
             if(THREADS_STOP == 1){
                 printf("time to die :D\n");
                 pthread_mutex_unlock(&frontier_empty_lock);
+                pthread_cond_broadcast(&frontier_cond);
                 free(buf.buf);
                 return 0;
             }
@@ -337,7 +342,6 @@ void *visit_url(void * arg){
             char temp[256];
             frontier_pop(urls_frontier, temp);
             pthread_mutex_unlock(&frontier_lock);
-
             if(temp != NULL){
                 CURL* curl_handle = easy_handle_init(&buf, temp);
 
@@ -346,8 +350,6 @@ void *visit_url(void * arg){
                     pthread_mutex_lock(&frontier_lock);
                     frontier_push(urls_frontier, temp);
                     pthread_mutex_unlock(&frontier_lock);
-
-                    visit_url(NULL);
                     free(buf.buf);
                     return 0;
                 }
@@ -356,7 +358,6 @@ void *visit_url(void * arg){
 
                 if(res == CURLE_OK){
                     process_data(curl_handle, &buf);
-                    
                     pthread_mutex_lock(&add_url_lock);
                     visited_urls[num_urls_visited] = temp;
                     num_urls_visited++;
@@ -454,6 +455,7 @@ int main(int argc, char * argv[]){
             break;
         }        
     }
+    
     strcpy(seed_url, argv[argc-1]);
     printf("INITIAL URL %s\n", seed_url);
 
@@ -478,59 +480,63 @@ int main(int argc, char * argv[]){
     // else, create threads, visit_url will be our thread routine
     // threads join, cleanup
      
-    DATA_BUF buf;
-    buf.max_size = 1048576; // WHAT SHOULD THE MAX SIZE BE?
-    buf.buf = malloc(1048576);
-    buf.size = 0;
-    buf.seq = -1;
-    CURL* curl_handle = easy_handle_init(&buf, seed_url);
+    // DATA_BUF buf;
+    // buf.max_size = 1048576; // WHAT SHOULD THE MAX SIZE BE?
+    // buf.buf = malloc(1048576);
+    // buf.size = 0;
+    // buf.seq = -1;
+    // CURL* curl_handle = easy_handle_init(&buf, seed_url);
 
-    if(curl_handle == NULL){
-        printf("curl failed L\n");
-        return -1;
-    }
+    // if(curl_handle == NULL){
+    //     printf("curl failed L\n");
+    //     return -1;
+    // }
 
-    CURLcode res = curl_easy_perform(curl_handle);    
+    // CURLcode res = curl_easy_perform(curl_handle);    
 
-    if(res == CURLE_OK){
-        printf("successfully curled. starting threads...\n");
-        process_data(curl_handle, &buf);
-        curl_easy_cleanup(curl_handle);
+    // if(res == CURLE_OK){
+        // printf("successfully curled. starting threads...\n");
+        // process_data(curl_handle, &buf);
+        // curl_easy_cleanup(curl_handle);
 
-        visited_urls[num_urls_visited] = seed_url;
-        num_urls_visited++;
+        // visited_urls[num_urls_visited] = seed_url;
+        // num_urls_visited++;
+
+        ht_add_url(seed_url);
+        frontier_push(urls_frontier, seed_url);
 
         // THREADS STUFF STARTS HERE
         pthread_t threads[num_threads];
         int threads_res[num_threads];
         for (int i = 0; i < num_threads; i++){
             threads_res[i] = pthread_create(threads + i, NULL, visit_url, NULL);
-            printf("here4\n");
         }
         // C O N D I T I O N A L  F O R  K I L L I N G  T H R E A D S
         pthread_mutex_lock(&threads_lock);
-
         pthread_cond_wait(&kill_threads_cond, &threads_lock);
         THREADS_STOP = 1;
+
+        pthread_cond_broadcast(&frontier_cond);
         pthread_mutex_unlock(&threads_lock);
 
         printf("CLEANING EVERYTHING UP\n");
         for (int i = 0; i < num_threads; i++){
             if (threads_res[i] == 0){
+                pthread_cond_broadcast(&frontier_cond);
                 pthread_join(threads[i], NULL);
-                printf("SUCCESSFUL JOIN\n");
+                printf("SUCCESSFUL JOIN %d\n", i);
             }
         }
-    }
-    else{
-        return -1;
-    }
+    // }
+    // else{
+    //     return -1;
+    // }
     // write_results(logfile_name);
 
     xmlCleanupParser();
     free(urls_frontier->stack);
     free(urls_frontier);
-    free(buf.buf);
+    // free(buf.buf);
 
     free(unique_pngs);
     free(visited_urls);
