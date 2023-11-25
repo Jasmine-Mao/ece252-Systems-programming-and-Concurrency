@@ -44,8 +44,6 @@ int ht_search_url(char * url){
     
     //printf("key: %s\n", temp_url.key);
     if (hsearch(temp_url, FIND) == NULL){
-        //not found
-        //output errno
         return 0;
     } else {
         return 1;
@@ -58,20 +56,22 @@ int ht_add_url(char * url){ //add logfile name, if logfile not null then call wr
     // for the hash table stuff)
 
     ENTRY temp_url;
+    // char copy_url[256];
+    // strcpy(copy_url, url);
+
+    // temp_url.key = copy_url;
+    // temp_url.data = copy_url;
+
+
+
     temp_url.key = strdup(url);
     temp_url.data = strdup(url);
 
     if (errno != ENOMEM){
         if(hsearch(temp_url, ENTER) != NULL){
+            printf("HT FAILED\n");
             return 1;
         }
     }
     return 0;
 }
-    /*
-    while ((hsearch(temp_url, ENTER) == NULL) && errno != ENOMEM){
-        temp_url->key = intkey_to_charkey((url_to_key(url)+i)%500);
-        i++;
-    }
-    free(temp_url);
-    return 0;*/
