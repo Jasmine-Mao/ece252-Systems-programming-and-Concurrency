@@ -517,6 +517,8 @@ int main(int argc, char * argv[]){
     write_results(logfile_name);
     
     xmlCleanupParser();
+
+    frontier_cleanup(urls_frontier);
     free(urls_frontier->stack);
     free(urls_frontier);
 

@@ -27,7 +27,6 @@ int frontier_pop(FRONTIER * frontier, char * outgoing_url){
     strcpy(outgoing_url, frontier->stack[frontier->top]);
     free(frontier->stack[frontier->top]);
     frontier->top--;
-
     return 0;
 }
 
@@ -39,3 +38,9 @@ int frontier_is_full(FRONTIER * frontier){
     return (frontier->top == FRONTIER_MAX_SIZE - 1);
 }
 
+void frontier_cleanup(FRONTIER* frontier){
+    while(!frontier_is_empty(frontier)){
+        char temp[256];
+        frontier_pop(frontier, temp);
+    }
+}
