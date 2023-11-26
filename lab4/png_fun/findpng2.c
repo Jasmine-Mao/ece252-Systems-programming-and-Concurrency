@@ -248,19 +248,21 @@ int process_png(CURL *curl_handle, DATA_BUF *recv_buf) {
         ht_add_url(eurl, hash_data);
         pthread_mutex_unlock(&ht_lock);
 
-        pthread_mutex_lock(&add_png_lock);
-        unique_pngs[num_png_obtained] = strdup(eurl);
-        // NEED TO FREE EURL
-        printf("UNIQUE PNG FOUND! %s\n", unique_pngs[num_png_obtained]);
-        // free(eurl);
-        num_png_obtained++;
-        pthread_mutex_unlock(&add_png_lock);
+        if(THREADS_STOP == 0){
+            pthread_mutex_lock(&add_png_lock);
+            unique_pngs[num_png_obtained] = strdup(eurl);
+            // NEED TO FREE EURL
+            printf("UNIQUE PNG FOUND! %s\n", unique_pngs[num_png_obtained]);
+            // free(eurl);
+            num_png_obtained++;
+            pthread_mutex_unlock(&add_png_lock);
 
-        if(num_png_obtained == max_png){
-            printf("MAX PNGS FOUND\n");
-            pthread_cond_broadcast(&kill_threads_cond);
-            pthread_cond_broadcast(&frontier_cond);
-            return 0;
+            if(num_png_obtained == max_png){
+                printf("MAX PNGS FOUND\n");
+                pthread_cond_broadcast(&kill_threads_cond);
+                pthread_cond_broadcast(&frontier_cond);
+                return 0;
+            }
         }
     }
     return 0;
