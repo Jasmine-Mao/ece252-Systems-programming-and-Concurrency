@@ -32,7 +32,8 @@
 // GLOBAL VARIABLES
 FRONTIER * urls_frontier;
 char ** unique_pngs;    // this is a pointer to an array of pointers (where each item is a pointer to a char array (string)
-char** visited_urls; //for writing purposes
+char ** visited_urls; //for writing purposes
+char ** hash_data;
 
 char seed_url[256];
 int max_png = 50;
@@ -210,7 +211,7 @@ int find_http(char *buf, int size, int follow_relative_links, const char *base_u
 
                 pthread_mutex_lock(&ht_lock);
                 // lock the ht to write to it
-                ht_add_url((char*)href);
+                ht_add_url((char*)href, hash_data);
                 pthread_mutex_unlock(&ht_lock);
 
                 pthread_mutex_lock(&frontier_lock);
@@ -244,13 +245,11 @@ int process_png(CURL *curl_handle, DATA_BUF *recv_buf) {
     
     if ((eurl != NULL) && is_png(recv_buf->buf) == 0) {
         pthread_mutex_lock(&ht_lock);
-        ht_add_url(eurl);
+        ht_add_url(eurl, hash_data);
         pthread_mutex_unlock(&ht_lock);
 
         pthread_mutex_lock(&add_png_lock);
-        char temp[256];
-        strcpy(temp, eurl);
-        unique_pngs[num_png_obtained] = temp;
+        unique_pngs[num_png_obtained] = strdup(eurl);
         // NEED TO FREE EURL
         printf("UNIQUE PNG FOUND! %s\n", unique_pngs[num_png_obtained]);
         // free(eurl);
@@ -340,9 +339,9 @@ void *visit_url(void * arg){
         if(THREADS_STOP != 1){
             pthread_mutex_lock(&frontier_lock);
             char temp[256];
-            frontier_pop(urls_frontier, temp);
+            int ret = frontier_pop(urls_frontier, temp);
             pthread_mutex_unlock(&frontier_lock);
-            if(temp != NULL){
+            if(ret == 0){
                 CURL* curl_handle = easy_handle_init(&buf, temp);
 
                 if(curl_handle == NULL){
@@ -406,6 +405,10 @@ int write_results(char * logfile_name){ //rewrite to append instead of write
         fclose(logfile);
     }
 
+    for (int i = 0; i < num_png_obtained; i++){
+        free(unique_pngs[i]);
+    }
+
     return 0;
 }
 
@@ -425,6 +428,9 @@ int main(int argc, char * argv[]){
     }
 
     visited_urls = malloc(sizeof(char*)*500);   // visited urls array
+    hash_data = malloc(sizeof(char*)*500);
+
+    
     xmlInitParser();
 
     while((c = getopt(argc, argv, "t:m:v:")) != -1){
@@ -480,7 +486,7 @@ int main(int argc, char * argv[]){
     // else, create threads, visit_url will be our thread routine
     // threads join, cleanup
 
-    ht_add_url(seed_url);
+    ht_add_url(seed_url, hash_data);
     frontier_push(urls_frontier, seed_url);
 
     // THREADS STUFF STARTS HERE
@@ -505,19 +511,19 @@ int main(int argc, char * argv[]){
             printf("SUCCESSFUL JOIN %d\n", i);
         }
     }
+
+    write_results(logfile_name);
     
     xmlCleanupParser();
     free(urls_frontier->stack);
     free(urls_frontier);
 
+    ht_cleanup(hash_data);
     free(unique_pngs);
     free(visited_urls);
+    free(hash_data);
 
-    pthread_mutex_lock(&ht_lock);
     hdestroy();
-    pthread_mutex_unlock(&ht_lock);
-
-    // printf("here\n");
 
     pthread_mutex_destroy(&ht_lock);
     pthread_mutex_destroy(&frontier_lock);

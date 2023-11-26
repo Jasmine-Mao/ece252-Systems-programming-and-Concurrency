@@ -6,4 +6,5 @@
 
 char* url_to_key(char * url);
 int ht_search_url(char * url);
-int ht_add_url(char * url);
+int ht_add_url(char * url, char ** hash_data);
+void ht_cleanup(char ** hash_data);

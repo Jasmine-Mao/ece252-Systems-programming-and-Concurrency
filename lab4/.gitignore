@@ -1,3 +1,7 @@
 *.out
 *.o
 findpng2
+png_urls.txt
+starter/*
+LOGFILE.txt
+log.txt

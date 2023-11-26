@@ -24,6 +24,8 @@
     */
 //hcreate and hdestroy in main
 
+int hash_entries = 0;
+
 char* url_to_key(char * url){
     char* key = url;
     return key;
@@ -51,27 +53,32 @@ int ht_search_url(char * url){
     return -1; //should not get here
 }
 
-int ht_add_url(char * url){ //add logfile name, if logfile not null then call write logfile func (new func), create file in main and append to file in func
+int ht_add_url(char * url, char ** hash_data){ //add logfile name, if logfile not null then call write logfile func (new func), create file in main and append to file in func
     // add a url to our hash table: get its key from its string url then set corresponding value (youre gonna have to check the hsearch(3) man page)
     // for the hash table stuff)
 
     ENTRY temp_url;
-    // char copy_url[256];
-    // strcpy(copy_url, url);
 
-    // temp_url.key = copy_url;
-    // temp_url.data = copy_url;
+    hash_data[hash_entries] = strdup(url);
 
+    temp_url.key = hash_data[hash_entries];
+    temp_url.data = hash_data[hash_entries];
 
-
-    temp_url.key = strdup(url);
-    temp_url.data = strdup(url);
+    printf("ATTEMPTING TO ADD URL: %s\n", temp_url.key);
 
     if (errno != ENOMEM){
         if(hsearch(temp_url, ENTER) != NULL){
-            printf("HT FAILED\n");
+            hash_entries++;
             return 1;
         }
     }
+    free(hash_data[hash_entries]);
     return 0;
+}
+
+void ht_cleanup(char ** hash_data){
+    for (int i = 0; i < hash_entries; i++){
+        printf("freeing url %d: %s\n", i, hash_data[i]);
+        free(hash_data[i]);
+    }
 }
