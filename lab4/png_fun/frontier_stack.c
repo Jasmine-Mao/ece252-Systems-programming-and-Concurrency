@@ -12,7 +12,7 @@ int frontier_init(FRONTIER * frontier){
 
 int frontier_push(FRONTIER * frontier, char * incoming_url){
     if (frontier_is_full(frontier)){
-        printf("Tried to push while frontiers is full! Something has gone terribly wrong!\n");
+        //printf("Tried to push while frontiers is full! Something has gone terribly wrong!\n");
     }
     frontier->top++;
     frontier->stack[frontier->top] = strdup(incoming_url);
@@ -21,7 +21,7 @@ int frontier_push(FRONTIER * frontier, char * incoming_url){
 
 int frontier_pop(FRONTIER * frontier, char * outgoing_url){
     if (frontier_is_empty(frontier)){
-        printf("Tried to pop while frontiers is empty!\n");
+        //printf("Tried to pop while frontiers is empty!\n");
         return -1;
     }
     strcpy(outgoing_url, frontier->stack[frontier->top]);

@@ -13,6 +13,9 @@
 #include <errno.h>
 #include <stdatomic.h>
 
+#include <time.h>
+#include <sys/time.h>
+
 #include <libxml/HTMLparser.h>
 #include <libxml/parser.h>
 #include <libxml/xpath.h>
@@ -207,7 +210,7 @@ int find_http(char *buf, int size, int follow_relative_links, const char *base_u
                 xmlFree(old);
             }
             if ( href != NULL && !strncmp((const char *)href, "http", 4) && ht_search_url((char*)href) == 0) {
-                printf("this is a unique url: %s\n", (char*)href);
+                //printf("this is a unique url: %s\n", (char*)href);
 
                 pthread_mutex_lock(&ht_lock);
                 // lock the ht to write to it
@@ -252,13 +255,13 @@ int process_png(CURL *curl_handle, DATA_BUF *recv_buf) {
             pthread_mutex_lock(&add_png_lock);
             unique_pngs[num_png_obtained] = strdup(eurl);
             // NEED TO FREE EURL
-            printf("UNIQUE PNG FOUND! %s\n", unique_pngs[num_png_obtained]);
+            //printf("UNIQUE PNG FOUND! %s\n", unique_pngs[num_png_obtained]);
             // free(eurl);
             num_png_obtained++;
             pthread_mutex_unlock(&add_png_lock);
 
             if(num_png_obtained == max_png){
-                printf("MAX PNGS FOUND\n");
+                //printf("MAX PNGS FOUND\n");
                 pthread_cond_broadcast(&kill_threads_cond);
                 pthread_cond_broadcast(&frontier_cond);
                 return 0;
@@ -311,11 +314,11 @@ void *visit_url(void * arg){
         buf.seq = -1;
 
         if(frontier_is_empty(urls_frontier)){ 
-            printf("FRONTIER EMPTY!!\n");
+            //printf("FRONTIER EMPTY!!\n");
             num_threads_waiting++;
-            printf("NUM WAITING = %d\n", num_threads_waiting);
+            //printf("NUM WAITING = %d\n", num_threads_waiting);
             if(num_threads_waiting == num_threads){
-                printf("KILL\n");
+                //printf("KILL\n");
                 pthread_cond_signal(&kill_threads_cond);
                 pthread_cond_broadcast(&frontier_cond);
                 free(buf.buf);
@@ -325,9 +328,9 @@ void *visit_url(void * arg){
             pthread_mutex_lock(&frontier_empty_lock);
             pthread_cond_wait(&frontier_cond, &frontier_empty_lock);
             
-            printf("NO LONGER WAITING FOR THE FRONTIER\n");
+            //printf("NO LONGER WAITING FOR THE FRONTIER\n");
             if(THREADS_STOP == 1){
-                printf("time to die :D\n");
+                //printf("time to die :D\n");
                 pthread_mutex_unlock(&frontier_empty_lock);
                 pthread_cond_broadcast(&frontier_cond);
                 free(buf.buf);
@@ -420,6 +423,14 @@ int write_results(char * logfile_name){ //rewrite to append instead of write
 
 int main(int argc, char * argv[]){
     //./findpng2 –t=num –m=num –v=filename seed_url -- t, m, v are opt
+    double times[2];
+    struct timeval tv;
+    if (gettimeofday(&tv, NULL) != 0) {
+        perror("gettimeofday");
+        abort();
+    }
+    times[0] = (tv.tv_sec) + tv.tv_usec/1000000.;
+
     curl_global_init(CURL_GLOBAL_DEFAULT);
     int c;
     char* logfile_name = NULL;
@@ -448,7 +459,7 @@ int main(int argc, char * argv[]){
                 printf("please enter valid thread number\n");
                 return -1;
             }
-            printf("arg passed for threads: %d\n", num_threads);
+            //printf("arg passed for threads: %d\n", num_threads);
             break;
         
         case 'm':
@@ -457,10 +468,10 @@ int main(int argc, char * argv[]){
                 printf("please enter valid number of max images\n");
                 return -1;
             }
-            printf("arg passed for num images: %d\n", max_png);
+            //printf("arg passed for num images: %d\n", max_png);
             break;
         case 'v':
-            printf("file to write log to: %s\n", optarg);
+            //printf("file to write log to: %s\n", optarg);
             logfile_name = optarg;
             break;
         default:
@@ -469,7 +480,7 @@ int main(int argc, char * argv[]){
     }
     
     strcpy(seed_url, argv[argc-1]);
-    printf("INITIAL URL %s\n", seed_url);
+    //printf("INITIAL URL %s\n", seed_url);
 
     urls_frontier = malloc(sizeof(FRONTIER));
     frontier_init(urls_frontier);
@@ -509,12 +520,12 @@ int main(int argc, char * argv[]){
     pthread_cond_broadcast(&frontier_cond);
     pthread_mutex_unlock(&threads_lock);
 
-    printf("CLEANING EVERYTHING UP\n");
+    //printf("CLEANING EVERYTHING UP\n");
     for (int i = 0; i < num_threads; i++){
         if (threads_res[i] == 0){
             pthread_cond_broadcast(&frontier_cond);
             pthread_join(threads[i], NULL);
-            printf("SUCCESSFUL JOIN %d\n", i);
+            //printf("SUCCESSFUL JOIN %d\n", i);
         }
     }
 
@@ -542,7 +553,14 @@ int main(int argc, char * argv[]){
     pthread_cond_destroy(&frontier_cond);
     pthread_cond_destroy(&kill_threads_cond);
 
-    printf("done\n");
+    //printf("done\n");
+
+    if (gettimeofday(&tv, NULL) != 0) {
+        perror("gettimeofday");
+        abort();
+    }
+    times[1] = (tv.tv_sec) + tv.tv_usec/1000000.;
+    printf("findpng2 execution time: %.6lf seconds\n",  times[1] - times[0]);
 
     return 0;
 }

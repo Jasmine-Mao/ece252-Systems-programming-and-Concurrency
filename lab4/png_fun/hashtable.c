@@ -64,7 +64,7 @@ int ht_add_url(char * url, char ** hash_data){ //add logfile name, if logfile no
     temp_url.key = hash_data[hash_entries];
     temp_url.data = hash_data[hash_entries];
 
-    printf("ATTEMPTING TO ADD URL: %s\n", temp_url.key);
+    //printf("ATTEMPTING TO ADD URL: %s\n", temp_url.key);
 
     if (errno != ENOMEM){
         if(hsearch(temp_url, ENTER) != NULL){
