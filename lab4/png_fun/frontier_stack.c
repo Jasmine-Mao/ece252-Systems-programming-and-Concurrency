@@ -39,8 +39,8 @@ int frontier_is_full(FRONTIER * frontier){
 }
 
 void frontier_cleanup(FRONTIER* frontier){
+    char temp[256];
     while(!frontier_is_empty(frontier)){
-        char temp[256];
         frontier_pop(frontier, temp);
     }
 }

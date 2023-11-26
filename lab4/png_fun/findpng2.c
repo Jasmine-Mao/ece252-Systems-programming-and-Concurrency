@@ -360,7 +360,7 @@ void *visit_url(void * arg){
                 if(res == CURLE_OK){
                     process_data(curl_handle, &buf);
                     pthread_mutex_lock(&add_url_lock);
-                    visited_urls[num_urls_visited] = temp;
+                    visited_urls[num_urls_visited] = strdup(temp);
                     num_urls_visited++;
                     pthread_mutex_unlock(&add_url_lock);
                 }
@@ -391,7 +391,7 @@ int write_results(char * logfile_name){ //rewrite to append instead of write
     }
     else {
         for (int i = 0; i < min_pngs; i++){
-            printf("%s\n", unique_pngs[i]);
+            //printf("%s\n", unique_pngs[i]);
             fprintf(png_urls, "%s\n", unique_pngs[i]);    // small but maybe wanna confirm if we can have a new line at the end of this file lol
         }
         fclose(png_urls);
@@ -401,6 +401,7 @@ int write_results(char * logfile_name){ //rewrite to append instead of write
         FILE *logfile = fopen(logfile_name, "w+");
         for (int i = 0; i < num_urls_visited; i++){
             if (visited_urls[i] != NULL){        // this inefficient, easy workaround is just to create a seperate container (array) w/ an end index
+                //printf("num %d, url %s\n", i, visited_urls[i]);
                 fprintf(logfile, "%s\n", visited_urls[i]);  // variable, and add to it everytime we find a unique url. if this causes time influence @ the end we can do the workaround
             }
         }
@@ -409,6 +410,9 @@ int write_results(char * logfile_name){ //rewrite to append instead of write
 
     for (int i = 0; i < num_png_obtained; i++){
         free(unique_pngs[i]);
+    }
+    for (int i = 0; i < num_urls_visited; i++){
+        free(visited_urls[i]);
     }
 
     return 0;

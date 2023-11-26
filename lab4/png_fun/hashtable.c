@@ -78,7 +78,7 @@ int ht_add_url(char * url, char ** hash_data){ //add logfile name, if logfile no
 
 void ht_cleanup(char ** hash_data){
     for (int i = 0; i < hash_entries; i++){
-        printf("freeing url %d: %s\n", i, hash_data[i]);
+        //printf("freeing url %d: %s\n", i, hash_data[i]);
         free(hash_data[i]);
     }
 }
