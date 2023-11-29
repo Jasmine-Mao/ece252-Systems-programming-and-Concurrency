@@ -5,7 +5,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "findpng2.h"
+#include "findpng3.h"
 
 int is_png(char* buf){
     // FILE *f = fopen(fpath, "r");
@@ -24,7 +24,3 @@ int is_png(char* buf){
     }
     return 0;
 }
-int get_png_height(struct data_IHDR *buf){return buf->height;}
-int get_png_width(struct data_IHDR *buf){return buf->width;}
-void set_png_height(struct data_IHDR *buf, int new_height){buf->height = new_height;}
-void set_png_width(struct data_IHDR *buf, int new_width){buf->width = new_width;}
