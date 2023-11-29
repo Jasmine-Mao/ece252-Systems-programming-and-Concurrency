@@ -92,7 +92,8 @@ CURL *easy_handle_init(CURLM *cm, DATA_BUF *ptr, const char *url)
     return easy_handle;
 }
 
-void webcrawler(){
+void webcrawler(int connections){
+
     return;
 }
 
@@ -144,7 +145,72 @@ int write_results(char * logfile_name){ //rewrite to append instead of write
 int main(int argc, char * argv[]){
     // findpng3 -t 10 -m 20 -v log.txt http://ece252-1.uwaterloo.ca/lab4
     int c;
+    int connections;
     char* logfile_name = NULL;
 
+    if(argc != 2){
+        fprintf(stderr, "Incorrect arguments!\n");
+        return -1;
+    }
 
+    while((c = getopt(argc, argv, "t:m:v:")) != -1){
+        switch (c)
+        {
+        case 't':
+            connections = strtoul(optarg, NULL, 10);
+            if(connections <= 0){
+                printf("please enter valid thread number\n");
+                return -1;
+            }
+            break;
+        
+        case 'm':
+            max_png = (int)strtoul(optarg, NULL, 10);
+            if(max_png <= 0){
+                printf("please enter valid number of max images\n");
+                return -1;
+            }
+            break;
+        case 'v':
+            logfile_name = optarg;
+            break;
+        default:
+            break;
+        }        
+    }
+
+    strcpy(seed_url, argv[argc-1]);
+    visited_urls = malloc(sizeof(char*)*500);
+    hash_data = malloc(sizeof(char*)*500);
+    unique_pngs = malloc(sizeof(char*) * max_png);
+    
+    xmlInitParser();
+
+    urls_frontier = malloc(sizeof(FRONTIER));
+    frontier_init(urls_frontier);
+
+    ht_add_url(seed_url, hash_data);
+    frontier_push(urls_frontier, seed_url);
+
+    curl_global_init(CURL_GLOBAL_ALL);
+    
+    // Call to multicurl async i/o crawler
+    webcrawler(connections);
+    write_results(logfile_name);
+    
+    curl_global_cleanup();
+    xmlCleanupParser();
+
+    frontier_cleanup(urls_frontier);
+    free(urls_frontier->stack);
+    free(urls_frontier);
+
+    ht_cleanup(hash_data);
+    free(unique_pngs);
+    free(visited_urls);
+    free(hash_data);
+
+    hdestroy();
+
+    return 0;
 }
