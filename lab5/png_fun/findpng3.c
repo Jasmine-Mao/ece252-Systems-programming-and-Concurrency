@@ -94,6 +94,13 @@ CURL *easy_handle_init(CURLM *cm, DATA_BUF *ptr, const char *url)
 
 void webcrawler(int connections){
 
+    CURLM *cm = curl_multi_init();
+    int urls_available = frontier_get_count(urls_frontier);
+
+    while (frontier_is_empty(urls_frontier) && (num_png_obtained < max_png)){
+        // do stuff
+    }
+
     return;
 }
 
