@@ -38,6 +38,10 @@ int frontier_is_full(FRONTIER * frontier){
     return (frontier->top == FRONTIER_MAX_SIZE - 1);
 }
 
+int frontier_get_count(FRONTIER * frontier){
+    return(frontier->top + 1);
+}
+
 void frontier_cleanup(FRONTIER* frontier){
     char temp[256];
     while(!frontier_is_empty(frontier)){

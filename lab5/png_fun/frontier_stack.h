@@ -20,4 +20,5 @@ int frontier_push(FRONTIER * frontier, char * incoming_url);
 int frontier_pop(FRONTIER * frontier, char * outgoing_url);
 int frontier_is_empty(FRONTIER * frontier);
 int frontier_is_full(FRONTIER * frontier);
+int frontier_get_count(FRONTIER * frontier);
 void frontier_cleanup(FRONTIER* frontier);

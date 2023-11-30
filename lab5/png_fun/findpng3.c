@@ -36,15 +36,7 @@ int max_png = 50;
 int num_png_obtained = 0;
 int num_urls_visited = 0;
 
-size_t header_write_callback(char* recv, size_t size, size_t nmemb, void* user_data){
-    size_t real_size = size * nmemb;
-    DATA_BUF* data_fetched = user_data;
-
-    if(real_size > strlen(ECE_252_HEADER) &&  strncmp(recv, ECE_252_HEADER, strlen(ECE_252_HEADER))){
-        data_fetched->seq = atoi(recv + strlen(ECE_252_HEADER));
-    }
-    return real_size;
-}
+// i do not think we even need the header callback so i removed it
 
 size_t data_write_callback(char* recv, size_t size, size_t nmemb, void* user_data){
     size_t real_size = size * nmemb;
@@ -65,6 +57,7 @@ CURL *easy_handle_init(CURLM *cm, DATA_BUF *ptr, const char *url)
     CURL *easy_handle = curl_easy_init();;
     if (easy_handle == NULL) {
         fprintf(stderr, "curl_easy_init: returned NULL\n");
+        free(ptr->buf);
         return NULL;
     }
 
@@ -72,8 +65,6 @@ CURL *easy_handle_init(CURLM *cm, DATA_BUF *ptr, const char *url)
 
     curl_easy_setopt(easy_handle, CURLOPT_WRITEFUNCTION, data_write_callback); 
     curl_easy_setopt(easy_handle, CURLOPT_WRITEDATA, (void *)ptr);
-    curl_easy_setopt(easy_handle, CURLOPT_HEADERFUNCTION, header_write_callback); 
-    curl_easy_setopt(easy_handle, CURLOPT_HEADERDATA, (void *)ptr);
 
     curl_easy_setopt(easy_handle, CURLOPT_PRIVATE, url);
     curl_easy_setopt(easy_handle, CURLOPT_VERBOSE, 0L);
@@ -92,13 +83,44 @@ CURL *easy_handle_init(CURLM *cm, DATA_BUF *ptr, const char *url)
     return easy_handle;
 }
 
-void webcrawler(int connections){
+void webcrawler(int max_connections){
 
+    int urls_available;
+    int connections_to_add;
+    int connections_free = max_connections;
+    int current_connections = 0;
     CURLM *cm = curl_multi_init();
-    int urls_available = frontier_get_count(urls_frontier);
 
     while (frontier_is_empty(urls_frontier) && (num_png_obtained < max_png)){
-        // do stuff
+        urls_available = frontier_get_count(urls_frontier);
+        connections_free = max_connections - current_connections;
+        if (connections_free > urls_available){
+            connections_to_add = urls_available;
+        }
+        else {
+            connections_to_add = connections_free;
+        }
+
+        for (int i = 0; i < connections_to_add; i++){
+            char url[256];
+            DATA_BUF data_buf;
+            data_buf.max_size = 1048576; // WHAT SHOULD THE MAX SIZE BE?
+            data_buf.buf = malloc(data_buf.max_size);
+            data_buf.size = 0;
+            frontier_pop(urls_frontier, url);
+            CURL* curl_handle = easy_handle_init(cm, &data_buf, url);
+            current_connections++;
+
+            if (curl_handle){
+                free(data_buf.buf);
+            }
+        }
+
+        curl_multi_perform(cm, current_connections);
+        //curl_multi_wait(cm, OTHER PARAMS IDK);
+
+        // check for event, remmeber to update current_connections if we finsih a curl!!!
+
     }
 
     return;
