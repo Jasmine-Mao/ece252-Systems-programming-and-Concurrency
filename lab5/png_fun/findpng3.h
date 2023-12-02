@@ -1,5 +1,10 @@
 #pragma once
 
+#include <libxml/HTMLparser.h>
+#include <libxml/parser.h>
+#include <libxml/xpath.h>
+#include <libxml/uri.h>
+
 typedef struct data_buf {
     char* buf;
     size_t size;

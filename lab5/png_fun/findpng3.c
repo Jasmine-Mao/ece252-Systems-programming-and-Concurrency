@@ -33,6 +33,8 @@
 #define CT_PNG_LEN  9
 #define CT_HTML_LEN 9
 
+#define MAX_WAIT_MSECS 30*1000 // 30 seconds for now, this should be long enough for any activity
+
 // GLOBAL VARIABLES
 FRONTIER * urls_frontier;
 char ** unique_pngs;    // this is a pointer to an array of pointers (where each item is a pointer to a char array (string)
@@ -227,13 +229,20 @@ void webcrawler(int max_connections){
     int connections_to_add;
     int connections_free = max_connections;
     int current_connections = 0;
-    int messages_left = 0;
 
-    CURLMsg *msg = NULL;
     CURLM *cm = curl_multi_init();
 
+    CURLMsg *msg = NULL;
+    CURL *eh=NULL;
+    CURLcode return_code=0;
+    int msgs_in_queue = 0;
+    int http_status_code;
+    const char *szUrl;
+
+    DATA_BUF data_buf_stack[max_connections];
+    int stack_top = -1;
+
     while (!frontier_is_empty(urls_frontier) && (num_png_obtained < max_png)){
-        printf("in the while loop\n");
         urls_available = frontier_get_count(urls_frontier);
         printf("Num urls available in the frontier: %d\n", urls_available);
 
@@ -250,59 +259,66 @@ void webcrawler(int max_connections){
         for (int i = 0; i < connections_to_add; i++){
             printf("adding a new url...\n");
             char url[256];
-            DATA_BUF data_buf;
-            data_buf.max_size = 1048576; // WHAT SHOULD THE MAX SIZE BE?
-            data_buf.buf = malloc(data_buf.max_size);
-            data_buf.size = 0;
+            stack_top++;
+            data_buf_stack[stack_top].max_size = 1048576; // WHAT SHOULD THE MAX SIZE BE?
+            data_buf_stack[stack_top].buf = malloc(data_buf_stack[stack_top].max_size);
+            data_buf_stack[stack_top].size = 0;
             frontier_pop(urls_frontier, url);
-            // add some precaution if we popped garbage
-            printf("popped url: %s\n", url);
+            CURL* curl_handle = easy_handle_init(cm, &data_buf_stack[stack_top], url);
 
-            CURL* curl_handle = easy_handle_init(cm, &data_buf, url);
-            // add to the multicurl every time we see there's an open connection to be filled
-            current_connections++;
-
-            if (curl_handle == NULL){
-                free(data_buf.buf);
+            if (curl_handle){
+                free(data_buf_stack[stack_top].buf);
+                stack_top--;
             }
             printf("Curled successfully! Number of current connections: %d\n", current_connections);
         }
 
+        curl_multi_perform(cm, &current_connections);
+
         int numfds = 0;
-        int multi_curl = curl_multi_perform(cm, &current_connections);
+        curl_multi_wait(cm, NULL, 0, MAX_WAIT_MSECS, &numfds);
 
-        if(multi_curl == CURLM_OK){
-            multi_curl = curl_multi_wait(cm, NULL, 0, MAX_WAIT_MS, &numfds);
-            printf("a curl returned\n");
-        }
+        // parse the event
 
-        if(multi_curl != CURLM_OK){
-            fprintf(stderr, "error: curl_multi_wait() returned %d\n", multi_curl);
-            return;
-        }
+        while ((msg = curl_multi_info_read(cm, &msgs_in_queue))){
+            if (msg->msg == CURLMSG_DONE){
+                eh = msg->easy_handle;
+                return_code = msg->data.result;
+                if (return_code != CURLE_OK){
+                    fprintf(stderr, "O_O\n");
+                    curl_multi_remove_handle(cm, eh);
+                    curl_easy_cleanup(eh);
+                    current_connections--;
+                    continue;
+                }
+                http_status_code=0;
+                szUrl = NULL;
 
-        printf("about to enter the while loop...\n");
+                curl_easy_getinfo(eh, CURLINFO_RESPONSE_CODE, &http_status_code);
+                curl_easy_getinfo(eh, CURLINFO_PRIVATE, &szUrl);
 
-
-        while((msg = curl_multi_info_read(cm, &messages_left))){
-            printf("in the while loop\n");
-            if(msg->msg == CURLMSG_DONE){
-                printf("a curl returned something useful to us~!\n");
-                DATA_BUF data_buf;
-                data_buf.max_size = 1048576; // WHAT SHOULD THE MAX SIZE BE?
-                data_buf.buf = malloc(data_buf.max_size);
-                data_buf.size = 0;
-                process_data(msg->easy_handle, &data_buf);
-                free(data_buf.buf);
-                curl_easy_cleanup(msg->easy_handle);
+                if(http_status_code==200) {
+                    printf("200 OK for %s\n", szUrl);
+                } else {
+                    fprintf(stderr, "GET of %s returned http status code %d\n", szUrl, http_status_code);
+                }
+                free(data_buf_stack[stack_top].buf);
+                stack_top--;
+                curl_multi_remove_handle(cm, eh);
+                curl_easy_cleanup(eh);
+                current_connections--;
             }
             else{
-                printf("not done :(\n");
+                // terribly wrong (maybe, theres not documentation on what it means if we get here)
+                fprintf(stderr, "O_O\n");
             }
         }
-        current_connections--;
+        if (msg == NULL){
+            printf("RAHHHH\n");
+        }
+
     }
-    printf("returning...\n");
+    curl_multi_cleanup(cm);
     return;
 }
 
