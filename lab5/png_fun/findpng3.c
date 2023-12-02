@@ -4,10 +4,17 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <curl/curl.h>
+#include <curl/multi.h>
 
 #include <getopt.h>
 #include <search.h>
 #include <errno.h>
+#include <stdatomic.h>
+
+#include <libxml/HTMLparser.h>
+#include <libxml/parser.h>
+#include <libxml/xpath.h>
+#include <libxml/uri.h>
 
 #include <time.h>
 #include <sys/time.h>
@@ -18,6 +25,8 @@
 
 #define MAX_URLS 500
 #define ECE_252_HEADER "X-Ece252-Fragment: "
+#define MAX_WAIT_MS 30*1000
+// from starter
 
 #define CT_PNG  "image/png"
 #define CT_HTML "text/html"
@@ -51,10 +60,9 @@ size_t data_write_callback(char* recv, size_t size, size_t nmemb, void* user_dat
     // taken directly from paster2
 }
 
-
 CURL *easy_handle_init(CURLM *cm, DATA_BUF *ptr, const char *url)
 {
-    CURL *easy_handle = curl_easy_init();;
+    CURL *easy_handle = curl_easy_init();
     if (easy_handle == NULL) {
         fprintf(stderr, "curl_easy_init: returned NULL\n");
         free(ptr->buf);
@@ -83,46 +91,218 @@ CURL *easy_handle_init(CURLM *cm, DATA_BUF *ptr, const char *url)
     return easy_handle;
 }
 
-void webcrawler(int max_connections){
+htmlDocPtr mem_getdoc(char *buf, int size, const char *url)
+{
+    int opts = HTML_PARSE_NOBLANKS | HTML_PARSE_NOERROR | \
+               HTML_PARSE_NOWARNING | HTML_PARSE_NONET;
+    htmlDocPtr doc = htmlReadMemory(buf, size, url, NULL, opts);
+    
+    if ( doc == NULL ) {
+        // fprintf(stderr, "Document not parsed successfully.\n");
+        return NULL;
+    }
+    return doc;
+}
 
+xmlXPathObjectPtr getnodeset (xmlDocPtr doc, xmlChar *xpath)
+{
+    xmlXPathContextPtr context;
+    xmlXPathObjectPtr result;
+
+    context = xmlXPathNewContext(doc);
+    if (context == NULL) {
+        printf("Error in xmlXPathNewContext\n");
+        return NULL;
+    }
+    result = xmlXPathEvalExpression(xpath, context);
+    xmlXPathFreeContext(context);
+    if (result == NULL) {
+        printf("Error in xmlXPathEvalExpression\n");
+        return NULL;
+    }
+    if(xmlXPathNodeSetIsEmpty(result->nodesetval)){
+        xmlXPathFreeObject(result);
+        return NULL;
+    }
+    return result;
+}
+
+int process_png(CURL *curl_handle, DATA_BUF *recv_buf) {
+    char *eurl = NULL;
+    curl_easy_getinfo(curl_handle, CURLINFO_EFFECTIVE_URL, &eurl);
+    
+    if ((eurl != NULL) && is_png(recv_buf->buf) == 0) {
+        ht_add_url(eurl, hash_data);
+
+        unique_pngs[num_png_obtained] = strdup(eurl);
+        
+        num_png_obtained++;
+    }
+    return 0;
+}
+
+
+int find_http(char *buf, int size, int follow_relative_links, const char *base_url) {
+    int i;
+    htmlDocPtr doc;
+    xmlChar *xpath = (xmlChar*) "//a/@href";
+    xmlNodeSetPtr nodeset;
+    xmlXPathObjectPtr result;
+    xmlChar *href;
+		
+    if (buf == NULL) {
+        return 1;
+    }
+
+    doc = mem_getdoc(buf, size, base_url);
+    result = getnodeset (doc, xpath);
+    if (result) {
+        nodeset = result->nodesetval;
+        for (i=0; i < nodeset->nodeNr; i++) {
+            href = xmlNodeListGetString(doc, nodeset->nodeTab[i]->xmlChildrenNode, 1);
+            if ( follow_relative_links ) {
+                xmlChar *old = href;
+                href = xmlBuildURI(href, (xmlChar *) base_url); 
+                xmlFree(old);
+            }
+            if ( href != NULL && !strncmp((const char *)href, "http", 4) && ht_search_url((char*)href) == 0) {
+                printf("this is a unique url: %s\n", (char*)href);
+                
+                ht_add_url((char*)href, hash_data);
+
+                frontier_push(urls_frontier, (char*)href);
+            }
+            xmlFree(href);
+        }
+        xmlXPathFreeObject (result);
+    }
+    xmlFreeDoc(doc);
+    return 0;
+}
+
+int process_html(CURL *curl_handle, DATA_BUF *recv_buf) {
+    int follow_relative_link = 1;
+    char *url = NULL; 
+
+    curl_easy_getinfo(curl_handle, CURLINFO_EFFECTIVE_URL, &url);
+    return find_http(recv_buf->buf, recv_buf->size, follow_relative_link, url); 
+}
+
+int process_data(CURL *curl_handle, DATA_BUF *recv_buf) {
+    CURLcode res;
+    long response_code;
+
+    res = curl_easy_getinfo(curl_handle, CURLINFO_RESPONSE_CODE, &response_code);
+    if ( res == CURLE_OK ) {
+	    printf("Response code: %ld\n", response_code);
+    }
+
+    if ( response_code >= 400 ) {
+    	fprintf(stderr, "Error.\n");
+        return 1;
+    }
+
+    char *ct = NULL;
+    res = curl_easy_getinfo(curl_handle, CURLINFO_CONTENT_TYPE, &ct);
+    if ( res == CURLE_OK && ct != NULL ) {
+    	// printf("Content-Type: %s, len=%ld\n", ct, strlen(ct));
+    } else {
+        fprintf(stderr, "Failed obtain Content-Type\n");
+        return 2;
+    }
+
+    if ( strstr(ct, CT_HTML) ) { 
+        printf("FOUND AN HTML PAGE!!\n");
+        return process_html(curl_handle, recv_buf);
+    } else if ( strstr(ct, CT_PNG) ) {
+        printf("FOUND A PNG!!\n");
+        return process_png(curl_handle, recv_buf);
+    }
+    return 0;
+}
+
+void webcrawler(int max_connections){
+    printf("HERE IN WEB CRAWLER! MAX CONNECTIONS: %d\n", max_connections);
     int urls_available;
     int connections_to_add;
     int connections_free = max_connections;
     int current_connections = 0;
+    int messages_left = 0;
+
+    CURLMsg *msg = NULL;
     CURLM *cm = curl_multi_init();
 
-    while (frontier_is_empty(urls_frontier) && (num_png_obtained < max_png)){
+    while (!frontier_is_empty(urls_frontier) && (num_png_obtained < max_png)){
+        printf("in the while loop\n");
         urls_available = frontier_get_count(urls_frontier);
+        printf("Num urls available in the frontier: %d\n", urls_available);
+
         connections_free = max_connections - current_connections;
+        printf("Number of free connections in the mutli: %d\n", connections_free);
         if (connections_free > urls_available){
             connections_to_add = urls_available;
         }
         else {
             connections_to_add = connections_free;
         }
+        printf("Connections to add: %d\n", connections_to_add);
 
         for (int i = 0; i < connections_to_add; i++){
+            printf("adding a new url...\n");
             char url[256];
             DATA_BUF data_buf;
             data_buf.max_size = 1048576; // WHAT SHOULD THE MAX SIZE BE?
             data_buf.buf = malloc(data_buf.max_size);
             data_buf.size = 0;
             frontier_pop(urls_frontier, url);
+            // add some precaution if we popped garbage
+            printf("popped url: %s\n", url);
+
             CURL* curl_handle = easy_handle_init(cm, &data_buf, url);
+            // add to the multicurl every time we see there's an open connection to be filled
             current_connections++;
 
-            if (curl_handle){
+            if (curl_handle == NULL){
                 free(data_buf.buf);
             }
+            printf("Curled successfully! Number of current connections: %d\n", current_connections);
         }
 
-        curl_multi_perform(cm, current_connections);
-        //curl_multi_wait(cm, OTHER PARAMS IDK);
+        int numfds = 0;
+        int multi_curl = curl_multi_perform(cm, &current_connections);
 
-        // check for event, remmeber to update current_connections if we finsih a curl!!!
+        if(multi_curl == CURLM_OK){
+            multi_curl = curl_multi_wait(cm, NULL, 0, MAX_WAIT_MS, &numfds);
+            printf("a curl returned\n");
+        }
 
+        if(multi_curl != CURLM_OK){
+            fprintf(stderr, "error: curl_multi_wait() returned %d\n", multi_curl);
+            return;
+        }
+
+        printf("about to enter the while loop...\n");
+
+
+        while((msg = curl_multi_info_read(cm, &messages_left))){
+            printf("in the while loop\n");
+            if(msg->msg == CURLMSG_DONE){
+                printf("a curl returned something useful to us~!\n");
+                DATA_BUF data_buf;
+                data_buf.max_size = 1048576; // WHAT SHOULD THE MAX SIZE BE?
+                data_buf.buf = malloc(data_buf.max_size);
+                data_buf.size = 0;
+                process_data(msg->easy_handle, &data_buf);
+                free(data_buf.buf);
+                curl_easy_cleanup(msg->easy_handle);
+            }
+            else{
+                printf("not done :(\n");
+            }
+        }
+        current_connections--;
     }
-
+    printf("returning...\n");
     return;
 }
 
@@ -177,9 +357,13 @@ int main(int argc, char * argv[]){
     int connections;
     char* logfile_name = NULL;
 
-    if(argc != 2){
+    if(argc < 2){
         fprintf(stderr, "Incorrect arguments!\n");
         return -1;
+    }
+    if (hcreate(MAX_URLS) == 0){
+        printf("Visited URLs table could not be made!\n");
+        return errno;
     }
 
     while((c = getopt(argc, argv, "t:m:v:")) != -1){
@@ -208,7 +392,9 @@ int main(int argc, char * argv[]){
         }        
     }
 
+
     strcpy(seed_url, argv[argc-1]);
+
     visited_urls = malloc(sizeof(char*)*500);
     hash_data = malloc(sizeof(char*)*500);
     unique_pngs = malloc(sizeof(char*) * max_png);
@@ -220,10 +406,12 @@ int main(int argc, char * argv[]){
 
     ht_add_url(seed_url, hash_data);
     frontier_push(urls_frontier, seed_url);
+    printf("Did we successfully add a url? %d\n", !frontier_is_empty(urls_frontier));
 
     curl_global_init(CURL_GLOBAL_ALL);
     
     // Call to multicurl async i/o crawler
+
     webcrawler(connections);
     write_results(logfile_name);
     
