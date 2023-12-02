@@ -229,6 +229,7 @@ void webcrawler(int max_connections){
     int connections_to_add;
     int connections_free = max_connections;
     int current_connections = 0;
+    int pending = 1;
 
     CURLM *cm = curl_multi_init();
 
@@ -242,7 +243,8 @@ void webcrawler(int max_connections){
     DATA_BUF data_buf_stack[max_connections];
     int stack_top = -1;
 
-    while (!frontier_is_empty(urls_frontier) && (num_png_obtained < max_png)){
+    while ((!frontier_is_empty(urls_frontier) && (num_png_obtained < max_png)) || (pending > 0)){
+        printf("Pending val %d\n", pending);
         urls_available = frontier_get_count(urls_frontier);
         printf("Num urls available in the frontier: %d\n", urls_available);
 
@@ -265,15 +267,17 @@ void webcrawler(int max_connections){
             data_buf_stack[stack_top].size = 0;
             frontier_pop(urls_frontier, url);
             CURL* curl_handle = easy_handle_init(cm, &data_buf_stack[stack_top], url);
-
-            if (curl_handle){
-                free(data_buf_stack[stack_top].buf);
-                stack_top--;
-            }
-            printf("Curled successfully! Number of current connections: %d\n", current_connections);
         }
 
         curl_multi_perform(cm, &current_connections);
+        pending = current_connections;
+
+        printf("Curled successfully! Number of current connections: %d\n", current_connections);
+
+        long timeout = 0;
+        curl_multi_timeout(cm, &timeout);
+        printf("Curled successfully! Number of current connections: %d\n", current_connections);
+        printf("Our current timeout is this: %ld\n", timeout);
 
         int numfds = 0;
         curl_multi_wait(cm, NULL, 0, MAX_WAIT_MSECS, &numfds);
@@ -288,6 +292,7 @@ void webcrawler(int max_connections){
                     fprintf(stderr, "O_O\n");
                     curl_multi_remove_handle(cm, eh);
                     curl_easy_cleanup(eh);
+                    pending--;
                     current_connections--;
                     continue;
                 }
@@ -306,15 +311,13 @@ void webcrawler(int max_connections){
                 stack_top--;
                 curl_multi_remove_handle(cm, eh);
                 curl_easy_cleanup(eh);
+                pending--;
                 current_connections--;
             }
             else{
                 // terribly wrong (maybe, theres not documentation on what it means if we get here)
                 fprintf(stderr, "O_O\n");
             }
-        }
-        if (msg == NULL){
-            printf("RAHHHH\n");
         }
 
     }
