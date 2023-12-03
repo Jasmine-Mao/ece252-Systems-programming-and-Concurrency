@@ -62,10 +62,11 @@ size_t data_write_callback(char* recv, size_t size, size_t nmemb, void* user_dat
 
 CURL *easy_handle_init(CURLM *cm, DATA_BUF *ptr, const char *url)
 {
-    CURL *easy_handle = curl_easy_init();
+    CURL *easy_handle = curl_easy_init(); //leaks
     if (easy_handle == NULL) {
         fprintf(stderr, "curl_easy_init: returned NULL\n");
         free(ptr->buf);
+        free(ptr);
         return NULL;
     }
 
@@ -93,7 +94,6 @@ CURL *easy_handle_init(CURLM *cm, DATA_BUF *ptr, const char *url)
     curl_easy_setopt(easy_handle, CURLOPT_HTTPAUTH, CURLAUTH_ANY);
 
     curl_multi_add_handle(cm, easy_handle);
-
     return easy_handle;
 }
 
@@ -243,9 +243,6 @@ void webcrawler(int max_connections){
     CURL *eh=NULL;
     CURLcode return_code=0;
     int msgs_in_queue = 0;
-    int http_status_code;
-
-    int stack_top = -1;
 
     while ((!frontier_is_empty(urls_frontier) && (num_png_obtained < max_png)) || (pending > 0)){
         // printf("Pending val %d\n", pending);
@@ -261,15 +258,13 @@ void webcrawler(int max_connections){
             connections_to_add = connections_free;
         }
         // printf("Connections to add: %d\n", connections_to_add);
-
         for (int i = 0; i < connections_to_add; i++){
             // printf("adding a new url...\n");
             char url[256];
-            stack_top++;
             DATA_BUF* data_buf = malloc(sizeof(DATA_BUF));
 
             data_buf->max_size = 1048576; // WHAT SHOULD THE MAX SIZE BE?
-            data_buf->buf = malloc(data_buf->max_size);
+            data_buf->buf = malloc(data_buf->max_size); //leaks
             data_buf->size = 0;
             frontier_pop(urls_frontier, url);
             CURL* curl_handle = easy_handle_init(cm, data_buf, url);
@@ -280,8 +275,12 @@ void webcrawler(int max_connections){
             }
         }
 
-        curl_multi_perform(cm, &current_connections);
+        CURLMcode perform_result = curl_multi_perform(cm, &current_connections); //leaks
         // check if perform fails
+        if (perform_result != CURLM_OK) {
+            fprintf(stderr, "curl_multi_perform failed: %s\n", curl_multi_strerror(perform_result));
+        }
+
         pending = current_connections;
 
         long timeout = 0;
@@ -301,23 +300,25 @@ void webcrawler(int max_connections){
                     //curl_multi_perform(cm, &current_connections);
                     continue;
                 }
-                http_status_code=0;
 
                 EH_INFO* temp;
 
-                curl_easy_getinfo(eh, CURLINFO_RESPONSE_CODE, &http_status_code);
                 curl_easy_getinfo(eh, CURLINFO_PRIVATE, &temp);
 
-                printf("HWERE**************************************************************************************\n");
+                printf("HERE**************************************************************************************\n");
 
                 process_data(msg->easy_handle, temp->data_buf);
-
-                free(temp->data_buf->buf);
-                free(temp->data_buf);
-                free(temp);
-
-                stack_top--;
+                
                 curl_multi_remove_handle(cm, eh);
+                if (temp != NULL) {
+                    if (temp->data_buf != NULL) {
+                        free(temp->data_buf->buf);
+                        free(temp->data_buf);
+                    }
+                    free(temp);
+                }
+
+                // Comment out the following line temporarily to see if the leak persists
                 curl_easy_cleanup(eh);
             }
             else{
@@ -378,8 +379,16 @@ int write_results(char * logfile_name){ //rewrite to append instead of write
     
 int main(int argc, char * argv[]){
     // findpng3 -t 10 -m 20 -v log.txt http://ece252-1.uwaterloo.ca/lab4
+    double times[2];
+    struct timeval tv;
+    if (gettimeofday(&tv, NULL) != 0) {
+        perror("gettimeofday");
+        abort();
+    }
+    times[0] = (tv.tv_sec) + tv.tv_usec/1000000.;
+
     int c;
-    int connections;
+    int connections = 1;
     char* logfile_name = NULL;
 
     if(argc < 2){
@@ -453,6 +462,13 @@ int main(int argc, char * argv[]){
     free(hash_data);
 
     hdestroy();
+
+    if (gettimeofday(&tv, NULL) != 0) {
+        perror("gettimeofday");
+        abort();
+    }
+    times[1] = (tv.tv_sec) + tv.tv_usec/1000000.;
+    printf("findpng2 execution time: %.6lf seconds\n",  times[1] - times[0]);    
 
     return 0;
 }
