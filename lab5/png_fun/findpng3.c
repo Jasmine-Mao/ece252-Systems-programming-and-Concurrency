@@ -47,8 +47,6 @@ int max_png = 50;
 int num_png_obtained = 0;
 int num_urls_visited = 0;
 
-// i do not think we even need the header callback so i removed it
-
 size_t data_write_callback(char* recv, size_t size, size_t nmemb, void* user_data){
     size_t real_size = size * nmemb;
 
@@ -71,15 +69,21 @@ CURL *easy_handle_init(CURLM *cm, DATA_BUF *ptr, const char *url)
         return NULL;
     }
 
+    EH_INFO* eh_info = malloc(sizeof(EH_INFO));
+    eh_info->data_buf = ptr;
+    eh_info->url = url;
+    // printf("MAX SIZE GRABBED FROM THINGY %ld\n", eh_info->data_buf->max_size);
+
+
     curl_easy_setopt(easy_handle, CURLOPT_URL, url);
 
     curl_easy_setopt(easy_handle, CURLOPT_WRITEFUNCTION, data_write_callback); 
     curl_easy_setopt(easy_handle, CURLOPT_WRITEDATA, (void *)ptr);
 
-    curl_easy_setopt(easy_handle, CURLOPT_PRIVATE, url);
+    curl_easy_setopt(easy_handle, CURLOPT_PRIVATE, eh_info);
     curl_easy_setopt(easy_handle, CURLOPT_VERBOSE, 0L);
 
-    curl_easy_setopt(easy_handle, CURLOPT_USERAGENT, "");
+    curl_easy_setopt(easy_handle, CURLOPT_USERAGENT, "ece252 lab5 crawler");
     curl_easy_setopt(easy_handle, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(easy_handle, CURLOPT_UNRESTRICTED_AUTH, 1L);
     curl_easy_setopt(easy_handle, CURLOPT_MAXREDIRS, 5L);
@@ -137,6 +141,7 @@ int process_png(CURL *curl_handle, DATA_BUF *recv_buf) {
         ht_add_url(eurl, hash_data);
 
         unique_pngs[num_png_obtained] = strdup(eurl);
+        printf("PNG: %s\n", eurl);
         
         num_png_obtained++;
     }
@@ -187,6 +192,7 @@ int process_html(CURL *curl_handle, DATA_BUF *recv_buf) {
     char *url = NULL; 
 
     curl_easy_getinfo(curl_handle, CURLINFO_EFFECTIVE_URL, &url);
+    // printf("%s\n", url);
     return find_http(recv_buf->buf, recv_buf->size, follow_relative_link, url); 
 }
 
@@ -214,17 +220,17 @@ int process_data(CURL *curl_handle, DATA_BUF *recv_buf) {
     }
 
     if ( strstr(ct, CT_HTML) ) { 
-        printf("FOUND AN HTML PAGE!!\n");
+        // printf("FOUND AN HTML PAGE!!\n");
         return process_html(curl_handle, recv_buf);
     } else if ( strstr(ct, CT_PNG) ) {
-        printf("FOUND A PNG!!\n");
+        // printf("FOUND A PNG!!\n");
         return process_png(curl_handle, recv_buf);
     }
     return 0;
 }
 
 void webcrawler(int max_connections){
-    printf("HERE IN WEB CRAWLER! MAX CONNECTIONS: %d\n", max_connections);
+    // printf("HERE IN WEB CRAWLER! MAX CONNECTIONS: %d\n", max_connections);
     int urls_available;
     int connections_to_add;
     int connections_free = max_connections;
@@ -244,46 +250,45 @@ void webcrawler(int max_connections){
     int stack_top = -1;
 
     while ((!frontier_is_empty(urls_frontier) && (num_png_obtained < max_png)) || (pending > 0)){
-        printf("Pending val %d\n", pending);
+        // printf("Pending val %d\n", pending);
         urls_available = frontier_get_count(urls_frontier);
-        printf("Num urls available in the frontier: %d\n", urls_available);
+        // printf("Num urls available in the frontier: %d\n", urls_available);
 
         connections_free = max_connections - current_connections;
-        printf("Number of free connections in the mutli: %d\n", connections_free);
+        // printf("Number of free connections in the mutli: %d\n", connections_free);
         if (connections_free > urls_available){
             connections_to_add = urls_available;
         }
         else {
             connections_to_add = connections_free;
         }
-        printf("Connections to add: %d\n", connections_to_add);
+        // printf("Connections to add: %d\n", connections_to_add);
 
         for (int i = 0; i < connections_to_add; i++){
-            printf("adding a new url...\n");
+            // printf("adding a new url...\n");
             char url[256];
             stack_top++;
-            data_buf_stack[stack_top].max_size = 1048576; // WHAT SHOULD THE MAX SIZE BE?
-            data_buf_stack[stack_top].buf = malloc(data_buf_stack[stack_top].max_size);
-            data_buf_stack[stack_top].size = 0;
+            DATA_BUF* data_buf = malloc(sizeof(DATA_BUF));
+
+            data_buf->max_size = 1048576; // WHAT SHOULD THE MAX SIZE BE?
+            data_buf->buf = malloc(data_buf->max_size);
+            data_buf->size = 0;
             frontier_pop(urls_frontier, url);
-            CURL* curl_handle = easy_handle_init(cm, &data_buf_stack[stack_top], url);
+            CURL* curl_handle = easy_handle_init(cm, data_buf, url);
         }
 
         curl_multi_perform(cm, &current_connections);
+        // check if perform fails
         pending = current_connections;
-
-        printf("Curled successfully! Number of current connections: %d\n", current_connections);
 
         long timeout = 0;
         curl_multi_timeout(cm, &timeout);
-        printf("Curled successfully! Number of current connections: %d\n", current_connections);
-        printf("Our current timeout is this: %ld\n", timeout);
+        // printf("Curled successfully! Number of current connections: %d\n", current_connections);
+        // printf("Our current timeout is this: %ld\n", timeout);
 
         int numfds = 0;
         curl_multi_wait(cm, NULL, 0, MAX_WAIT_MSECS, &numfds);
-
-        // parse the event
-
+        
         while ((msg = curl_multi_info_read(cm, &msgs_in_queue))){
             if (msg->msg == CURLMSG_DONE){
                 eh = msg->easy_handle;
@@ -297,17 +302,21 @@ void webcrawler(int max_connections){
                     continue;
                 }
                 http_status_code=0;
-                szUrl = NULL;
+
+                EH_INFO* temp;
 
                 curl_easy_getinfo(eh, CURLINFO_RESPONSE_CODE, &http_status_code);
-                curl_easy_getinfo(eh, CURLINFO_PRIVATE, &szUrl);
+                curl_easy_getinfo(eh, CURLINFO_PRIVATE, &temp);
 
-                if(http_status_code==200) {
-                    printf("200 OK for %s\n", szUrl);
-                } else {
-                    fprintf(stderr, "GET of %s returned http status code %d\n", szUrl, http_status_code);
-                }
-                free(data_buf_stack[stack_top].buf);
+                szUrl = temp->url;
+                printf("HWERE**************************************************************************************\n");
+
+                process_data(msg->easy_handle, temp->data_buf);
+
+                free(temp->data_buf->buf);
+                free(temp->data_buf);
+                free(temp);
+
                 stack_top--;
                 curl_multi_remove_handle(cm, eh);
                 curl_easy_cleanup(eh);
