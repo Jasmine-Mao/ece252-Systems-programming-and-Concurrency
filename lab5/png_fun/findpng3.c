@@ -244,9 +244,7 @@ void webcrawler(int max_connections){
     CURLcode return_code=0;
     int msgs_in_queue = 0;
     int http_status_code;
-    const char *szUrl;
 
-    DATA_BUF data_buf_stack[max_connections];
     int stack_top = -1;
 
     while ((!frontier_is_empty(urls_frontier) && (num_png_obtained < max_png)) || (pending > 0)){
@@ -275,6 +273,11 @@ void webcrawler(int max_connections){
             data_buf->size = 0;
             frontier_pop(urls_frontier, url);
             CURL* curl_handle = easy_handle_init(cm, data_buf, url);
+            if (curl_handle == NULL){
+                frontier_push(urls_frontier, url);
+                free(data_buf->buf);
+                free(data_buf);
+            }
         }
 
         curl_multi_perform(cm, &current_connections);
@@ -294,11 +297,8 @@ void webcrawler(int max_connections){
                 eh = msg->easy_handle;
                 return_code = msg->data.result;
                 if (return_code != CURLE_OK){
-                    fprintf(stderr, "O_O\n");
-                    curl_multi_remove_handle(cm, eh);
-                    curl_easy_cleanup(eh);
-                    pending--;
-                    current_connections--;
+                    printf("O-0\n");
+                    //curl_multi_perform(cm, &current_connections);
                     continue;
                 }
                 http_status_code=0;
@@ -308,7 +308,6 @@ void webcrawler(int max_connections){
                 curl_easy_getinfo(eh, CURLINFO_RESPONSE_CODE, &http_status_code);
                 curl_easy_getinfo(eh, CURLINFO_PRIVATE, &temp);
 
-                szUrl = temp->url;
                 printf("HWERE**************************************************************************************\n");
 
                 process_data(msg->easy_handle, temp->data_buf);
@@ -320,8 +319,6 @@ void webcrawler(int max_connections){
                 stack_top--;
                 curl_multi_remove_handle(cm, eh);
                 curl_easy_cleanup(eh);
-                pending--;
-                current_connections--;
             }
             else{
                 // terribly wrong (maybe, theres not documentation on what it means if we get here)
