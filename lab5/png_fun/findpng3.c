@@ -47,6 +47,9 @@ int max_png = 50;
 int num_png_obtained = 0;
 int num_urls_visited = 0;
 
+int total_connections = 0;
+int connections_freed = 0;
+
 size_t data_write_callback(char* recv, size_t size, size_t nmemb, void* user_data){
     size_t real_size = size * nmemb;
 
@@ -69,19 +72,15 @@ CURL *easy_handle_init(CURLM *cm, DATA_BUF *ptr, const char *url)
         free(ptr);
         return NULL;
     }
-
-    EH_INFO* eh_info = malloc(sizeof(EH_INFO));
-    eh_info->data_buf = ptr;
-    eh_info->url = url;
-    // printf("MAX SIZE GRABBED FROM THINGY %ld\n", eh_info->data_buf->max_size);
-
+    total_connections++;
+    printf("Created handles for %d connections\n", total_connections);
 
     curl_easy_setopt(easy_handle, CURLOPT_URL, url);
 
     curl_easy_setopt(easy_handle, CURLOPT_WRITEFUNCTION, data_write_callback); 
     curl_easy_setopt(easy_handle, CURLOPT_WRITEDATA, (void *)ptr);
 
-    curl_easy_setopt(easy_handle, CURLOPT_PRIVATE, eh_info);
+    curl_easy_setopt(easy_handle, CURLOPT_PRIVATE, ptr);
     curl_easy_setopt(easy_handle, CURLOPT_VERBOSE, 0L);
 
     curl_easy_setopt(easy_handle, CURLOPT_USERAGENT, "ece252 lab5 crawler");
@@ -141,7 +140,7 @@ int process_png(CURL *curl_handle, DATA_BUF *recv_buf) {
         ht_add_url(eurl, hash_data);
 
         unique_pngs[num_png_obtained] = strdup(eurl);
-        printf("PNG: %s\n", eurl);
+        //printf("PNG: %s\n", eurl);
         
         num_png_obtained++;
     }
@@ -173,7 +172,7 @@ int find_http(char *buf, int size, int follow_relative_links, const char *base_u
                 xmlFree(old);
             }
             if ( href != NULL && !strncmp((const char *)href, "http", 4) && ht_search_url((char*)href) == 0) {
-                printf("this is a unique url: %s\n", (char*)href);
+                //printf("this is a unique url: %s\n", (char*)href);
                 
                 ht_add_url((char*)href, hash_data);
 
@@ -202,11 +201,11 @@ int process_data(CURL *curl_handle, DATA_BUF *recv_buf) {
 
     res = curl_easy_getinfo(curl_handle, CURLINFO_RESPONSE_CODE, &response_code);
     if ( res == CURLE_OK ) {
-	    printf("Response code: %ld\n", response_code);
+	    //printf("Response code: %ld\n", response_code);
     }
 
     if ( response_code >= 400 ) {
-    	fprintf(stderr, "Error.\n");
+    	//fprintf(stderr, "Error.\n");
         return 1;
     }
 
@@ -262,7 +261,7 @@ void webcrawler(int max_connections){
             // printf("adding a new url...\n");
             char url[256];
             DATA_BUF* data_buf = malloc(sizeof(DATA_BUF));
-
+            
             data_buf->max_size = 1048576; // WHAT SHOULD THE MAX SIZE BE?
             data_buf->buf = malloc(data_buf->max_size); //leaks
             data_buf->size = 0;
@@ -270,8 +269,6 @@ void webcrawler(int max_connections){
             CURL* curl_handle = easy_handle_init(cm, data_buf, url);
             if (curl_handle == NULL){
                 frontier_push(urls_frontier, url);
-                free(data_buf->buf);
-                free(data_buf);
             }
         }
 
@@ -301,25 +298,23 @@ void webcrawler(int max_connections){
                     continue;
                 }
 
-                EH_INFO* temp;
+                DATA_BUF* temp = NULL;
 
                 curl_easy_getinfo(eh, CURLINFO_PRIVATE, &temp);
 
-                printf("HERE**************************************************************************************\n");
+                //printf("HERE**************************************************************************************\n");
 
-                process_data(msg->easy_handle, temp->data_buf);
-                
-                curl_multi_remove_handle(cm, eh);
-                if (temp != NULL) {
-                    if (temp->data_buf != NULL) {
-                        free(temp->data_buf->buf);
-                        free(temp->data_buf);
-                    }
+                if (temp){
+                    process_data(msg->easy_handle, temp);
+                    free(temp->buf);
                     free(temp);
                 }
 
-                // Comment out the following line temporarily to see if the leak persists
+                curl_multi_remove_handle(cm, eh);
                 curl_easy_cleanup(eh);
+                connections_freed++;
+                printf("Freed handles for %d connections\n", connections_freed);
+
             }
             else{
                 // terribly wrong (maybe, theres not documentation on what it means if we get here)
