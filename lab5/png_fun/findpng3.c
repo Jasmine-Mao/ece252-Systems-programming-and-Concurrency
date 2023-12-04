@@ -294,6 +294,8 @@ void webcrawler(int max_connections){
                 return_code = msg->data.result;
                 if (return_code != CURLE_OK){
                     printf("O-0\n");
+                    curl_easy_cleanup(eh);
+
                     //curl_multi_perform(cm, &current_connections);
                     continue;
                 }
@@ -323,6 +325,7 @@ void webcrawler(int max_connections){
         }
 
     }
+
     curl_multi_cleanup(cm);
     return;
 }
