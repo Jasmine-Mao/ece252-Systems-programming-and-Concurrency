@@ -297,6 +297,8 @@ void webcrawler(int max_connections){
                 return_code = msg->data.result;
                 if (return_code != CURLE_OK){
                     printf("O-0\n");
+                    curl_easy_cleanup(eh);
+
                     //curl_multi_perform(cm, &current_connections);
                     continue;
                 }
@@ -310,6 +312,7 @@ void webcrawler(int max_connections){
                 process_data(msg->easy_handle, temp->data_buf);
                 
                 curl_multi_remove_handle(cm, eh);
+                curl_easy_cleanup(eh);
                 if (temp != NULL) {
                     if (temp->data_buf != NULL) {
                         free(temp->data_buf->buf);
@@ -319,7 +322,6 @@ void webcrawler(int max_connections){
                 }
 
                 // Comment out the following line temporarily to see if the leak persists
-                curl_easy_cleanup(eh);
             }
             else{
                 // terribly wrong (maybe, theres not documentation on what it means if we get here)
@@ -328,6 +330,7 @@ void webcrawler(int max_connections){
         }
 
     }
+
     curl_multi_cleanup(cm);
     return;
 }
