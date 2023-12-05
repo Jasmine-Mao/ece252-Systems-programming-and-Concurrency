@@ -296,34 +296,18 @@ void webcrawler(int max_connections){
                 DATA_BUF* temp = NULL;
                 curl_easy_getinfo(eh, CURLINFO_PRIVATE, &temp);
                 
-                if (return_code != CURLE_OK){
-                    char *url = NULL; 
-                    curl_easy_getinfo(eh, CURLINFO_EFFECTIVE_URL, &url);
-                    visited_urls[num_urls_visited] = strdup(url);
-                    num_urls_visited++;
-                    free(temp->buf);
-                    free(temp);
-
-                    curl_multi_remove_handle(cm, eh);
-                    curl_easy_cleanup(eh);
-                    connections_freed++;
-                    printf("Freed handles for %d connections\n", connections_freed);
-
-                    //curl_multi_perform(cm, &current_connections);
-                    continue;
+                if (return_code == CURLE_OK){
+                    process_data(msg->easy_handle, temp);
                 }
 
                 //printf("HERE**************************************************************************************\n");
 
-                if (temp){
-                    char *url = NULL; 
-                    curl_easy_getinfo(eh, CURLINFO_EFFECTIVE_URL, &url);
-                    process_data(msg->easy_handle, temp);
-                    visited_urls[num_urls_visited] = strdup(url);
-                    num_urls_visited++;
-                    free(temp->buf);
-                    free(temp);
-                }
+                char *url = NULL; 
+                curl_easy_getinfo(eh, CURLINFO_EFFECTIVE_URL, &url);
+                visited_urls[num_urls_visited] = strdup(url);
+                num_urls_visited++;
+                free(temp->buf);
+                free(temp);
 
                 curl_multi_remove_handle(cm, eh);
                 curl_easy_cleanup(eh);
