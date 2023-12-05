@@ -297,7 +297,10 @@ void webcrawler(int max_connections){
                 curl_easy_getinfo(eh, CURLINFO_PRIVATE, &temp);
                 
                 if (return_code != CURLE_OK){
-                    printf("O-0\n");
+                    char *url = NULL; 
+                    curl_easy_getinfo(eh, CURLINFO_EFFECTIVE_URL, &url);
+                    visited_urls[num_urls_visited] = strdup(url);
+                    num_urls_visited++;
                     free(temp->buf);
                     free(temp);
 
@@ -313,7 +316,11 @@ void webcrawler(int max_connections){
                 //printf("HERE**************************************************************************************\n");
 
                 if (temp){
+                    char *url = NULL; 
+                    curl_easy_getinfo(eh, CURLINFO_EFFECTIVE_URL, &url);
                     process_data(msg->easy_handle, temp);
+                    visited_urls[num_urls_visited] = strdup(url);
+                    num_urls_visited++;
                     free(temp->buf);
                     free(temp);
                 }
