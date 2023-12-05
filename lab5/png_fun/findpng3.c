@@ -73,7 +73,7 @@ CURL *easy_handle_init(CURLM *cm, DATA_BUF *ptr, const char *url)
         return NULL;
     }
     total_connections++;
-    printf("Created handles for %d connections\n", total_connections);
+    //printf("Created handles for %d connections\n", total_connections);
 
     curl_easy_setopt(easy_handle, CURLOPT_URL, url);
 
@@ -272,7 +272,7 @@ void webcrawler(int max_connections){
             }
         }
 
-        printf("here\n");
+        //printf("here\n");
         CURLMcode perform_result = curl_multi_perform(cm, &current_connections); //leaks
         // check if perform fails
         if (perform_result != CURLM_OK) {
@@ -313,7 +313,7 @@ void webcrawler(int max_connections){
                 curl_multi_remove_handle(cm, eh);
                 curl_easy_cleanup(eh);
                 connections_freed++;
-                printf("Freed handles for %d connections\n", connections_freed);
+                //printf("Freed handles for %d connections\n", connections_freed);
 
             }
             else{
@@ -436,7 +436,7 @@ int main(int argc, char * argv[]){
 
     ht_add_url(seed_url, hash_data);
     frontier_push(urls_frontier, seed_url);
-    printf("Did we successfully add a url? %d\n", !frontier_is_empty(urls_frontier));
+    //printf("Did we successfully add a url? %d\n", !frontier_is_empty(urls_frontier));
 
     curl_global_init(CURL_GLOBAL_ALL);
     
