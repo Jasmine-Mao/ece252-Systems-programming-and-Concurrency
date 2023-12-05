@@ -136,7 +136,7 @@ int process_png(CURL *curl_handle, DATA_BUF *recv_buf) {
     char *eurl = NULL;
     curl_easy_getinfo(curl_handle, CURLINFO_EFFECTIVE_URL, &eurl);
     
-    if ((eurl != NULL) && is_png(recv_buf->buf) == 0) {
+    if ((eurl != NULL) && is_png(recv_buf->buf) == 0 && (num_png_obtained < max_png)) {
         ht_add_url(eurl, hash_data);
 
         unique_pngs[num_png_obtained] = strdup(eurl);
@@ -272,6 +272,7 @@ void webcrawler(int max_connections){
             }
         }
 
+        printf("here\n");
         CURLMcode perform_result = curl_multi_perform(cm, &current_connections); //leaks
         // check if perform fails
         if (perform_result != CURLM_OK) {
