@@ -292,17 +292,23 @@ void webcrawler(int max_connections){
             if (msg->msg == CURLMSG_DONE){
                 eh = msg->easy_handle;
                 return_code = msg->data.result;
+
+                DATA_BUF* temp = NULL;
+                curl_easy_getinfo(eh, CURLINFO_PRIVATE, &temp);
+                
                 if (return_code != CURLE_OK){
                     printf("O-0\n");
+                    free(temp->buf);
+                    free(temp);
+
+                    curl_multi_remove_handle(cm, eh);
                     curl_easy_cleanup(eh);
+                    connections_freed++;
+                    printf("Freed handles for %d connections\n", connections_freed);
 
                     //curl_multi_perform(cm, &current_connections);
                     continue;
                 }
-
-                DATA_BUF* temp = NULL;
-
-                curl_easy_getinfo(eh, CURLINFO_PRIVATE, &temp);
 
                 //printf("HERE**************************************************************************************\n");
 
