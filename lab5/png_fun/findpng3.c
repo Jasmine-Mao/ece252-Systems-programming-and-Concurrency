@@ -289,7 +289,7 @@ void webcrawler(int max_connections){
         int numfds = 0;
         curl_multi_wait(cm, NULL, 0, MAX_WAIT_MSECS, &numfds);
         
-        while ((msg = curl_multi_info_read(cm, &msgs_in_queue))){
+        while ((msg = curl_multi_info_read(cm, &msgs_in_queue)) && (num_png_obtained < max_png)){
             if (msg->msg == CURLMSG_DONE){
                 eh = msg->easy_handle;
                 return_code = msg->data.result;
@@ -464,7 +464,7 @@ int main(int argc, char * argv[]){
         abort();
     }
     times[1] = (tv.tv_sec) + tv.tv_usec/1000000.;
-    printf("findpng2 execution time: %.6lf seconds\n",  times[1] - times[0]);    
+    printf("findpng3 execution time: %.6lf seconds\n",  times[1] - times[0]);
 
     return 0;
 }
