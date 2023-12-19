@@ -289,7 +289,7 @@ void webcrawler(int max_connections){
         int numfds = 0;
         curl_multi_wait(cm, NULL, 0, MAX_WAIT_MSECS, &numfds);
         
-        while ((msg = curl_multi_info_read(cm, &msgs_in_queue)) && (num_png_obtained < max_png)){
+        while (msg = curl_multi_info_read(cm, &msgs_in_queue)){
             if (msg->msg == CURLMSG_DONE){
                 eh = msg->easy_handle;
                 return_code = msg->data.result;
