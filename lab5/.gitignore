@@ -1,0 +1,6 @@
+*.out
+*.o
+findpng3
+png_urls.txt
+starter/*
+log.txt

@@ -5,22 +5,23 @@
  *
  * This software may be freely redistributed under the terms of MIT License
  */
-#pragma once
+#ifndef PNG_INFO_H
+#define PNG_INFO_H
 
-/******************************************************************************
- * INCLUDE HEADER FILES
- *****************************************************************************/
 #include <stdio.h>
 
 /******************************************************************************
  * DEFINED MACROS 
  *****************************************************************************/
 
-#define PNG_SIG_SIZE    8 /* number of bytes of png image signature data */
-#define CHUNK_LEN_SIZE  4 /* chunk length field size in bytes */          
-#define CHUNK_TYPE_SIZE 4 /* chunk type field size in bytes */
-#define CHUNK_CRC_SIZE  4 /* chunk CRC field size in bytes */
-#define DATA_IHDR_SIZE 13 /* IHDR chunk data field size */
+#define PNG_SIG_SIZE    8   /* number of bytes of png image signature data */
+#define CHUNK_LEN_SIZE  4   /* chunk length field size in bytes */          
+#define CHUNK_TYPE_SIZE 4   /* chunk type field size in bytes */
+#define CHUNK_CRC_SIZE  4   /* chunk CRC field size in bytes */
+#define DATA_IHDR_SIZE 13   /* IHDR chunk data field size */
+
+#define IEND_CHUNK_SIZE 12  /* ihdr chunk size in bytes */
+#define IHDR_CHUNK_SIZE 25  /* iend chunk size in bytes */
 
 /******************************************************************************
  * STRUCTURES and TYPEDEFS 
@@ -61,19 +62,8 @@ typedef struct ihdr_chunk {
 /* A simple PNG file format, three chunks only*/
 typedef struct simple_PNG {
     ihdr_chunk_p p_IHDR;
-    chunk_p p_IDAT;  /* only handles one IDAT chunk */  
+    chunk_p p_IDAT;
     chunk_p p_IEND;
 } *simple_PNG_p;
 
-/** @brief Determine if a file is a png or not given file path
- *
- *  @param fpath The string of relative or absolute file path.
- *  @return 0 if the file is a png, -1 otherwise
- */
-int is_png(const char *fpath);
-
-/* Getters and setters for PNG dimensions*/
-int get_png_height(struct data_IHDR *buf);
-int get_png_width(struct data_IHDR *buf);
-void set_png_height(struct data_IHDR *buf, int new_height);
-void set_png_width(struct data_IHDR *buf, int new_width);
+#endif

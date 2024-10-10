@@ -1,3 +1,10 @@
+// typedef struct recv_buf2 {
+//     char *buf;       /* memory to hold a copy of received data */
+//     size_t size;     /* size of valid data in buf in bytes*/
+//     size_t max_size; /* max capacity of buf in bytes*/
+//     int seq;         /* >=0 sequence number extracted from http header */
+//                      /* <0 indicates an invalid seq number */
+// } RECV_BUF;
 /**
  * @brief  micros and structures for a simple PNG file 
  *
@@ -70,7 +77,7 @@ typedef struct simple_PNG {
  *  @param fpath The string of relative or absolute file path.
  *  @return 0 if the file is a png, -1 otherwise
  */
-int is_png(const char *fpath);
+int is_png(char* buf);
 
 /* Getters and setters for PNG dimensions*/
 int get_png_height(struct data_IHDR *buf);

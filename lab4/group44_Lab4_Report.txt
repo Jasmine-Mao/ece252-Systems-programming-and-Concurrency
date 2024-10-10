@@ -1,0 +1,108 @@
+========================
+Lab 4 marking report
+
+======= PART 1 =======
+>> Running make
+Test Passed: Compiled from makefile +0.5
+
+======= PART 2 =======
+
+-- case 2.1 --
+>> Running: ./findpng2 -t 1 -m 50 http://ece252-1.uwaterloo.ca/lab4
+findpng2 execution time: 58.294396 seconds
+Found: 50
+Test Passed: Running with -t 1 -m 50 collected 50 unique and valid pngs +1
+
+-- case 2.2 --
+>> Running: ./findpng2 -t 1 -m 100 -v log.txt http://ece252-1.uwaterloo.ca/lab4
+findpng2 execution time: 60.979710 seconds
+Found: 50 pngs
+Found: 309 logs
+Test Failed: Running with -t 1 -m 100 did not visit >= 347 urls and collect 50 unique, valid pngs -2
+
+======= PART 3 =======
+Calling with -t 15
+>> Running: ./findpng2 -t 15 -m 100 -v log.txt http://ece252-1.uwaterloo.ca/lab4
+Thread count: 15
+findpng2 execution time: 4.374818 seconds
+
+-- case 3.1 --
+Test Passed: Correctly spawns only 15 threads with -t =15 +1
+
+-- case 3.2 --
+Found: 50
+Confirming that pngs found are valid
+Test Passed: Crawled the correct number of URLs, finding the correct number of pngs +1
+
+-- case 4.1 --
+Test Passed: Student made efforts to reduce busywaiting through sem_waits or pthread_cond_waits +1
+
+======= PART 5 =======
+Running 3 test cases for timings test
+Executions are:
+>> ./findpng2 -t 1 -m 20
+>> ./findpng2 -t 10 -m 20
+>> ./findpng2 -t 20 -m 20
+Beginning...
+1 Worker
+ avg (5 runs):23.34
+10 Workers:
+ avg (5 runs):2.94
+20 Workers:
+ avg (5 runs):1.87
+
+-- case 5.1 --
+Test Passed: Running with -t20 was >= 16x faster than -t1 (or took <= 2.4s) +1
+
+-- case 5.2 --
+Test Passed: Running with -t10 was >= 8x faster than -t1 (or took <= 4.8s) +1
+
+======= PART 6 =======
+Running 3 test cases for results test
+>> Running: ./findpng2 -t 20 -m 3 -v log.txt http://ece252-1.uwaterloo.ca/lab4
+findpng2 execution time: 0.873098 seconds
+>> Running: ./findpng2 -t 20 -m 50 -v log.txt http://ece252-1.uwaterloo.ca/lab4
+findpng2 execution time: 3.512532 seconds
+>> Running: ./findpng2 -t 20 -m 100 -v log.txt http://ece252-1.uwaterloo.ca/lab4
+findpng2 execution time: 3.339044 seconds
+
+-- case 6.1 --
+Found 3 for -m=3, 50 for -m=50, and 50 for -m=100
+Test Passed: Number of pngs is correct in all run cases +1
+
+-- case 6.2 --
+NOTE: This test has been regraded to unconditionally pass.
+Test Passed: Number of URLs visited for -m 50 <= -m 100 +1
+
+-- case 6.3 --
+Test Passed: Run time for -m 100 is <= 2X of -m 50 +1
+
+======= PART 7 =======
+
+-- case 7.1 --
+Running valgrind with arguments -t 10 -m 50
+Test Passed: Did not find definitely lost bytes +0.5
+
+===== SUMMARY =====
+
+Tests Passed:
+---------------
+- Compiled from makefile +0.5
+- Running with -t 1 -m 50 collected 50 unique and valid pngs +1
+- Correctly spawns only 15 threads with -t =15 +1
+- Crawled the correct number of URLs, finding the correct number of pngs +1
+- Student made efforts to reduce busywaiting through sem_waits or pthread_cond_waits +1
+- Running with -t20 was >= 16x faster than -t1 (or took <= 2.4s) +1
+- Running with -t10 was >= 8x faster than -t1 (or took <= 4.8s) +1
+- Number of pngs is correct in all run cases +1
+- Number of URLs visited for -m 50 <= -m 100 +1
+- Run time for -m 100 is <= 2X of -m 50 +1
+- Did not find definitely lost bytes +0.5
+
+Tests Failed:
+---------------
+- Running with -t 1 -m 100 did not visit >= 347 urls and collect 50 unique, valid pngs -2
+########### Score ###########
+Total lab 4 score: 10.0/12
+
+#### Additional Comments ####

@@ -1,0 +1,8 @@
+*.out
+*.o
+paster2
+all.png
+run_lab3.sh
+B*
+tb1_N1_2841903.txt
+tb2_N1_2841903.txt
